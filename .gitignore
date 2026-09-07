@@ -1,11 +1,9 @@
 # Generated outputs and local caches
+D3DV2/results*/
+D3DV2/results*/**
 **/__pycache__/
 *.pyc
 *.log
 *.jsonl
-# Exclude raw generated result JSON while retaining compact summaries.
-D3DV2/results*/**/*.json
-!D3DV2/results*/**/*.summary.json
-# Local model/cache directories
 **/cache/
 **/checkpoints/
