@@ -1,0 +1,21 @@
+CUDA_VISIBLE_DEVICES=0 \
+VERIFIER_DEVICE=cuda:0 \
+DRAFT_DEVICE=cuda:0 \
+MAX_NEW_TOKENS=2048 \
+DATASETS=7bench \
+BLOCK_SIZE=16 \
+DRAFTER=/inspire/ssd/project/sais-bio/public/meiruiqiao/qwen-bard-opd/sdar_output/greedy/block-16-a128-ar1.0/step-355227 \
+VERIFIER=/inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/models/Qwen3-8B \
+OUT_DIR=/inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3DV2/results_smoke/8bq8bb16  \
+bash /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3DV2/scripts/eval_sync.sh
+
+CUDA_VISIBLE_DEVICES=0 \
+VERIFIER_DEVICE=cuda:0 \
+DRAFT_DEVICE=cuda:0 \
+MAX_NEW_TOKENS=2048 \
+DATASETS=7bench \
+BLOCK_SIZE=32 \
+DRAFTER=/inspire/ssd/project/sais-bio/public/meiruiqiao/qwen-bard-opd/sdar_output/greedy/block-32/anchor64-ar1.0/step-355227 \
+VERIFIER=/inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/models/Qwen3-8B \
+OUT_DIR=/inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3DV2/results_smoke/8bq8bb32  \
+bash /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3DV2/scripts/eval_sync.sh
