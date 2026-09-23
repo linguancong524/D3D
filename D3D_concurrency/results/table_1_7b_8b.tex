@@ -1,0 +1,15 @@
+\begin{table}[t]
+\centering
+\caption{D3DV2 output throughput (tok/s), SDAR-1.7B $\rightarrow$ Qwen3-8B, two H800 GPUs. 64 prompts per dataset, at most 256 output tokens, 1 measurement(s) per cell. MT-Bench uses first turns. Timing includes prefill and decode.}
+\label{tab:d3dv2-concurrency}
+\begin{tabular}{rrrr}
+\hline
+Concurrency & Math500 & HumanEval & MT-Bench \\
+\hline
+1 & 160.6 & 139.1 & 80.2 \\
+8 & 317.1 & 275.3 & 167.4 \\
+16 & 348.4 & 297.8 & 178.2 \\
+32 & 363.5 & 311.7 & 183.3 \\
+\hline
+\end{tabular}
+\end{table}

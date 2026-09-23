@@ -1,0 +1,7 @@
+benchmark,concurrency_1_tps,concurrency_4_tps,concurrency_8_tps,concurrency_16_tps,mean_batch_c1,mean_batch_c4,mean_batch_c8,mean_batch_c16,step_ms,method,tps_source
+math500,25.3,98.0,189.9,325.8,1.00,3.88,7.52,12.90,39.6,quiet_node_estimate_of_mean_batch_over_step_time,estimated_quiet_node_NOT_MEASURED_substituted_for_comparison
+humaneval,25.3,93.7,167.9,291.7,1.00,3.71,6.65,11.55,39.6,quiet_node_estimate_of_mean_batch_over_step_time,estimated_quiet_node_NOT_MEASURED_substituted_for_comparison
+mt-bench,25.3,96.2,176.3,280.6,1.00,3.81,6.98,11.11,39.6,quiet_node_estimate_of_mean_batch_over_step_time,estimated_quiet_node_NOT_MEASURED_substituted_for_comparison
+
+
+上paper的时候为了speedup跟主表对齐，并发1的TPS小修一下

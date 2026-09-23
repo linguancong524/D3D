@@ -1,0 +1,169 @@
+"""Strict-concurrency D3DV2 greedy engine; one target and one SDAR instance.
+
+SSD Sequence/page ownership reused. Request admission is capped explicitly.
+Target verification executes in a dedicated thread on GPU0 while GPU1 predicts
+all selected acceptance/anchor outcomes with one SDAR forward per microbatch.
+"""
+from __future__ import annotations
+from concurrent.futures import ThreadPoolExecutor
+import time
+import torch
+from backend import Runner, Sequence, SamplingParams, MASK_ID
+
+class Engine:
+    def __init__(self, target, draft, block_size=16, anchor_num=3, draft_microbatch=4, pages=512):
+        self.K, self.A, self.micro = block_size, anchor_num, draft_microbatch
+        self.target = Runner(target, 'cuda:0', pages=pages)
+        self.draft = Runner(draft, 'cuda:1', draft=True, pages=pages)
+        self.executor = ThreadPoolExecutor(max_workers=1)
+
+    def close(self): self.executor.shutdown(wait=True)
+
+    def _mask(self, specs=None):
+        def build(starts, Q, S):
+            dev = starts.device
+            cols = torch.arange(S, device=dev)[None,None,:].expand(len(starts),-1,-1)
+            pref = starts[:,None,None]
+            local = cols-pref
+            if specs is None: # recovery: all block tokens attend each other
+                mask = (cols < pref+Q).expand(-1,Q,-1).clone()
+            else:
+                mask = torch.zeros(len(starts),Q,S,dtype=torch.bool,device=dev)
+                rows = torch.arange(self.K,device=dev)[None,:,None]
+                mask[:,:self.K] = (cols < pref) | ((local>=0)&(local<=rows))
+                for b, branches in enumerate(specs):
+                    for j,(accepted,anchor) in enumerate(branches):
+                        off=self.K+j*self.K
+                        mask[b,off:off+self.K] = (cols[b] < pref[b]+accepted) | ((local[b]>=off)&(local[b]<off+self.K))
+            return mask[:,None]
+        return build
+
+    def _recover(self, seqs):
+        for off in range(0,len(seqs),self.micro):
+            group=seqs[off:off+self.micro]
+            ids=torch.full((len(group),self.K),MASK_ID,dtype=torch.long,device=self.draft.device)
+            ids[:,0]=torch.tensor([s.anchor for s in group],device=ids.device)
+            top,blocks=self.draft.forward(group,ids,mask_builder=self._mask(),topk=self.A+1)
+            blocks[:,0]=ids[:,0]
+            for s,block,t in zip(group,blocks,top):
+                s.current=block; s.top=t; s.recoveries+=1
+
+    def _predict(self,seqs):
+        results={}
+        for off in range(0,len(seqs),self.micro):
+            group=seqs[off:off+self.micro]
+            specs=[]
+            for s in group:
+                top=s.top.cpu().tolist(); current=s.current.cpu().tolist()
+                branches=[]
+                for accepted in range(1,self.K):
+                    anchors=[v for v in top[accepted] if v != current[accepted]][:self.A]
+                    assert len(anchors)==self.A
+                    branches.extend((accepted,a) for a in anchors)
+                branches.append((self.K,None)); specs.append(branches)
+            Q=self.K+len(specs[0])*self.K
+            ids=torch.full((len(group),Q),MASK_ID,dtype=torch.long,device=self.draft.device)
+            pos=torch.empty_like(ids)
+            for b,s in enumerate(group):
+                ids[b,:self.K]=s.current
+                pos[b,:self.K]=torch.arange(s.prefix,s.prefix+self.K,device=ids.device)
+                for j,(n,a) in enumerate(specs[b]):
+                    start=self.K+j*self.K
+                    if a is not None: ids[b,start]=a
+                    pos[b,start:start+self.K]=torch.arange(s.prefix+n,s.prefix+n+self.K,device=ids.device)
+            top,greedy=self.draft.forward(group,ids,positions=pos,mask_builder=self._mask(specs),topk=self.A+1)
+            for b,s in enumerate(group):
+                outcomes={}
+                for j,key in enumerate(specs[b]):
+                    start=self.K+j*self.K
+                    t=top[b,start:start+self.K].clone()
+                    block=greedy[b,start:start+self.K].clone()
+                    if key[1] is not None: block[0]=key[1]
+                    outcomes[key]=(block,t)
+                results[s.seq_id]=outcomes
+        return results
+
+    @torch.inference_mode()
+    def _verify(self,seqs,blocks):
+        posterior=self.target.forward(seqs,blocks).cpu().tolist()
+        out=[]
+        for block,p in zip(blocks,posterior):
+            accepted=1
+            while accepted<len(block) and block[accepted]==p[accepted-1]: accepted+=1
+            out.append((accepted,p[accepted-1]))
+        return out
+
+    @torch.inference_mode()
+    def generate(self,prompts,concurrency,max_new_tokens=256,ignore_eos=False,eos=(151643,151645)):
+        if concurrency<1 or max_new_tokens<1: raise ValueError('positive concurrency and output length required')
+        waiting=iter(enumerate(prompts)); running=[]; outputs=[]; exhausted=False
+        started=time.perf_counter(); max_active=0; batch_sizes=[]
+        for d in [0,1]: torch.cuda.reset_peak_memory_stats(d)
+        while running or not exhausted:
+            admitted=[]
+            while len(running)+len(admitted)<concurrency and not exhausted:
+                try: idx,ids=next(waiting)
+                except StopIteration: exhausted=True; break
+                s=Sequence(ids,SamplingParams(temperature=0,max_new_tokens=max_new_tokens))
+                s.index=idx; s.prefix=len(ids); s.generated=[]; s.born=time.perf_counter()
+                s.accepts=[]; s.hits=0; s.recoveries=0
+                admitted.append(s)
+            if admitted:
+                # Prefill runs concurrently on target/draft and in bounded token batches.
+                for off in range(0,len(admitted),4):
+                    group=admitted[off:off+4]
+                    future=self.executor.submit(self.target.prefill,group)
+                    self.draft.prefill(group)
+                    anchors=future.result()
+                    ready=[]
+                    for s,a in zip(group,anchors):
+                        s.anchor=a
+                        if not ignore_eos and a in eos:
+                            s.generated=[a]; self._finish(s,outputs)
+                        else: ready.append(s)
+                    self._recover(ready)
+                    running.extend(ready)
+            if not running: continue
+            max_active=max(max_active,len(running)); batch_sizes.append(len(running))
+            blocks=[s.current.cpu().tolist() for s in running]
+            future=self.executor.submit(self._verify,running,blocks)
+            # Packed forward also commits actual pending tokens to draft KV.
+            predictions=self._predict(running)
+            accepted=future.result()
+            remaining=[]; recover=[]
+            for s,block,(n,anchor) in zip(running,blocks,accepted):
+                emitted=block[:n]
+                room=max_new_tokens-len(s.generated)
+                emitted=emitted[:room]
+                stop=False
+                if not ignore_eos:
+                    for j,t in enumerate(emitted):
+                        if t in eos: emitted=emitted[:j+1]; stop=True; break
+                s.generated.extend(emitted); s.accepts.append(n)
+                s.prefix+=n; s.anchor=anchor
+                if stop or len(s.generated)>=max_new_tokens:
+                    self._finish(s,outputs); continue
+                # Anchor is target-produced; stop immediately if it is EOS.
+                if not ignore_eos and anchor in eos:
+                    s.generated.append(anchor); self._finish(s,outputs); continue
+                key=(n,None if n==self.K else anchor)
+                selected=predictions[s.seq_id].get(key)
+                if selected is None: recover.append(s)
+                else:
+                    s.current,s.top=selected; s.current[0]=anchor; s.hits+=1
+                self.target.trim(s,s.prefix); self.draft.trim(s,s.prefix)
+                remaining.append(s)
+            running=remaining
+            self._recover(recover)
+        for d in [0,1]: torch.cuda.synchronize(d)
+        elapsed=time.perf_counter()-started
+        outputs.sort(key=lambda s:s['index'])
+        total=sum(len(s['tokens']) for s in outputs)
+        return dict(outputs=outputs,elapsed_s=elapsed,output_tokens=total,tps=total/elapsed,
+                    max_active=max_active,decode_batch_sizes=batch_sizes,
+                    peak_allocated_gb=[torch.cuda.max_memory_allocated(d)/1e9 for d in [0,1]])
+
+    def _finish(self,s,outputs):
+        outputs.append(dict(index=s.index,tokens=s.generated,latency_s=time.perf_counter()-s.born,
+                            accepts=s.accepts,hits=s.hits,recoveries=s.recoveries))
+        self.target.release(s); self.draft.release(s)

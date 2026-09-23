@@ -1,0 +1,5 @@
+pair,dataset,concurrency,anchor,microbatch,attempts,tps_best,tps_attempts,tps_pooled,decode_tps_best,hit_rate,mean_accept,output_tokens_best,wall_s_best,prefill_s_best,peak_target_gb,run_id,origin
+1.7b_8b,humaneval,1,3,1,2,191.66,"191.7, 186.9",189.26,,0.8233,6.49,68831,359.1,,35.81,20260921_170243_nfull_t512_r2,first pass
+1.7b_8b,humaneval,4,1,4,2,459.35,"459.3, 442.8",450.91,,0.5990,6.421,68687,149.5,,35.82,20260921_170243_nfull_t512_r2,first pass
+1.7b_8b,humaneval,8,1,8,2,611.01,"607.3, 611.0",609.15,,0.5959,6.409,68808,112.6,,35.85,20260921_170243_nfull_t512_r2,first pass
+1.7b_8b,humaneval,16,1,16,2,685.61,"685.6, 682.8",684.22,,0.5947,6.39,69027,100.7,,35.84,20260921_170243_nfull_t512_r2,first pass
