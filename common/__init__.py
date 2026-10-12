@@ -1,1 +1,1 @@
-"""Shared runtime helpers for the D3D single-request and serving entry points."""
+"""Shared helpers used by the single-request and serving entry points."""

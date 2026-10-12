@@ -20,7 +20,8 @@ sys.path.insert(0, str(ROOT / 'single'))
 sys.path.insert(0, str(ROOT))
 from serving.backend import Sequence, SamplingParams
 from serving.target_process import TargetProcess
-from single import eval_sync as original
+from common.data import load_rows
+from common.text import apply_chat_template
 
 
 def save(path, value):
@@ -144,8 +145,8 @@ def main():
     datasets = {}
     directories = {}
     for name in args.datasets:
-        rows, cfg, source = original.load_rows(name, args.max_samples or None)
-        prompts = [tokenizer.encode(original._apply_chat_template(
+        rows, cfg, source = load_rows(name, args.max_samples or None)
+        prompts = [tokenizer.encode(apply_chat_template(
             tokenizer, [{'role': 'user', 'content': cfg['question'](row)}], False)) for row in rows]
         if not prompts:
             raise ValueError(f'No prompts: {name}')

@@ -1,5 +1,8 @@
-import importlib.metadata
+"""Device, checkpoint, capacity, and runtime-metadata helpers."""
+from __future__ import annotations
+
 import hashlib
+import importlib.metadata
 import json
 import platform
 import subprocess
@@ -61,16 +64,6 @@ def check_paged_capacity(target, draft, datasets, concurrency, max_new_tokens, p
                                      f'at concurrency {count}; configured pages={pages}')
 
 
-def load_dataset_jsonl(repo_id, filename, revision='main'):
-    from huggingface_hub import hf_hub_download
-
-    source = Path(hf_hub_download(repo_id=repo_id, filename=filename, repo_type='dataset', revision=revision))
-    content = source.read_bytes()
-    rows = [json.loads(line) for line in content.decode().splitlines() if line.strip()]
-    return rows, {'repo_id': repo_id, 'filename': filename, 'revision': revision,
-                  'sha256': hashlib.sha256(content).hexdigest()}
-
-
 def runtime_metadata(models=None):
     import torch
 
@@ -101,3 +94,21 @@ def runtime_metadata(models=None):
         'source_sha256': {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
                           for path in sorted(root.rglob('*.py'))},
     }
+
+
+def resolve_dtype(dtype_name: str):
+    import torch
+
+    if dtype_name == "auto":
+        return "auto"
+    mapping = {
+        "bf16": torch.bfloat16,
+        "bfloat16": torch.bfloat16,
+        "fp16": torch.float16,
+        "float16": torch.float16,
+        "fp32": torch.float32,
+        "float32": torch.float32,
+    }
+    if dtype_name not in mapping:
+        raise ValueError(f"Unsupported dtype {dtype_name!r}")
+    return mapping[dtype_name]

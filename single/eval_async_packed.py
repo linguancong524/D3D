@@ -22,6 +22,12 @@ if __package__:
 else:
     import eval_sync as sync
 
+from common.data import DATASETS, build_prompt, gold_for_row, load_rows, score_text
+from common.io import safe_custom_tag, safe_tag, write_json
+from common.metrics import summarize_timing_metrics
+from common.runtime import check_hardware, resolve_dtype, resolve_model_path, runtime_metadata
+from common.text import apply_chat_template, contains_stop, eos_token_ids, tokens_to_int_list, trim_at_stop
+
 def _device(name: str | torch.device) -> torch.device:
     return torch.device(name)
 
@@ -62,7 +68,7 @@ def _verifier_process_main(
         device = _device(device_name)
         if device.type == "cuda":
             torch.cuda.set_device(device)
-        dtype = sync._resolve_dtype(dtype_name)
+        dtype = resolve_dtype(dtype_name)
         verifier = sync._load_model(
             model_path,
             dtype,
@@ -755,17 +761,17 @@ def _d3d_steps_dynamic(
         source = verify_sources[i] if verify_sources is not None and i < len(verify_sources) else "redraft"
         accepted = int(length) if source.startswith("async_") else max(int(length) - 1, 0)
         if draft_token_blocks is not None and i < len(draft_token_blocks):
-            draft_tokens = sync._tokens_to_int_list(draft_token_blocks[i])
+            draft_tokens = tokens_to_int_list(draft_token_blocks[i])
         else:
             draft_len = max(int(block_size) - 1, 0)
             draft_tokens = [0] * draft_len
         target_tokens = (
-            sync._tokens_to_int_list(target_token_blocks[i])
+            tokens_to_int_list(target_token_blocks[i])
             if target_token_blocks is not None and i < len(target_token_blocks)
             else []
         )
         emitted_tokens = (
-            sync._tokens_to_int_list(emitted_token_blocks[i])
+            tokens_to_int_list(emitted_token_blocks[i])
             if emitted_token_blocks is not None and i < len(emitted_token_blocks)
             else []
         )
@@ -869,7 +875,6 @@ def run_d3d_generate_async(
     kv_len = num_input_tokens
 
     _sync_device(draft_device_t)
-    start_time = time.perf_counter()
 
     anchor_values, verifier_prefill_time, target_cache_len = verifier_client.prefill(
         input_ids,
@@ -1154,7 +1159,7 @@ def run_d3d_generate_async(
             output_ids[:, kv_len] = anchor_target
 
         generated = output_ids[:, num_input_tokens : min(kv_len + 1, max_length)]
-        stopped = sync._contains_stop(generated, stop_token_ids)
+        stopped = contains_stop(generated, stop_token_ids)
         stopped_blocks.append(bool(stopped))
         if stopped or kv_len >= max_length:
             break
@@ -1169,7 +1174,7 @@ def run_d3d_generate_async(
             current_source = "redraft"
 
     output_ids = output_ids[:, : min(kv_len + 1, max_length)]
-    output_ids = sync._trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
+    output_ids = trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
     _sync_device(draft_device_t)
     decoding_time = time.perf_counter() - decoding_start
 
@@ -1477,7 +1482,7 @@ def _write_async_summary(args, payload: dict[str, Any]) -> dict[str, Any]:
     compact = sync._summary_from_payload(args, payload, args.summary_json)
     compact["async"] = payload.get("summary", {}).get("async", {})
     if args.summary_json:
-        sync._write_json(args.summary_json, compact)
+        write_json(args.summary_json, compact)
     return compact
 
 
@@ -1531,20 +1536,20 @@ def run_ar_baseline(
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
-    if args.dataset not in sync.DATASETS:
-        raise ValueError(f"unsupported dataset {args.dataset}; supported: {sorted(sync.DATASETS)}")
+    if args.dataset not in DATASETS:
+        raise ValueError(f"unsupported dataset {args.dataset}; supported: {sorted(DATASETS)}")
     args.verifier_device = args.verifier_device or "cuda:0"
     args.draft_device = args.draft_device or "cuda:1"
-    sync.check_hardware(args.verifier_device, args.draft_device)
+    check_hardware(args.verifier_device, args.draft_device)
     torch.manual_seed(args.seed)
-    target_path = sync.resolve_model_path(args.verifier)
-    draft_path = sync.resolve_model_path(args.drafter)
-    tokenizer_path = sync.resolve_model_path(args.tokenizer) if args.tokenizer else target_path
-    args.runtime = sync.runtime_metadata({'target': target_path, 'draft': draft_path,
+    target_path = resolve_model_path(args.verifier)
+    draft_path = resolve_model_path(args.drafter)
+    tokenizer_path = resolve_model_path(args.tokenizer) if args.tokenizer else target_path
+    args.runtime = runtime_metadata({'target': target_path, 'draft': draft_path,
                                           'tokenizer': tokenizer_path})
     args.use_kvcache = True
-    args.drafter_tag = sync._safe_custom_tag(args.drafter_tag, sync._safe_tag(args.drafter))
-    args.verifier_tag = sync._safe_tag(args.verifier)
+    args.drafter_tag = safe_custom_tag(args.drafter_tag, safe_tag(args.drafter))
+    args.verifier_tag = safe_tag(args.verifier)
     args.verifier, args.drafter, args.tokenizer = target_path, draft_path, tokenizer_path
 
     model_type = args.model_type or sync._checkpoint_model_type(draft_path)
@@ -1555,11 +1560,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if int(args.async_blocks) < 1:
         raise ValueError("--async-blocks must be >= 1")
 
-    dtype = sync._resolve_dtype(args.dtype)
+    dtype = resolve_dtype(args.dtype)
     target_attn = os.environ.get("TARGET_ATTN_IMPLEMENTATION", args.target_attn_implementation)
     draft_attn = os.environ.get("DRAFT_ATTN_IMPLEMENTATION", args.draft_attn_implementation)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=False)
-    eos_token_ids = sync._eos_token_ids(tokenizer, args.eos_token_id) or sync.STOP_TOKEN_IDS
+    eos_ids = eos_token_ids(tokenizer, args.eos_token_id) or sync.STOP_TOKEN_IDS
 
     verifier_cpu_affinity = _parse_cpu_affinity(args.verifier_cpu_affinity)
     draft_cpu_affinity = _parse_cpu_affinity(args.draft_cpu_affinity)
@@ -1584,15 +1589,15 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     sync._disable_default_cache(draft)
     verifier_client.wait_ready()
 
-    rows, cfg, dataset_source = sync.load_rows(args.dataset, args.max_samples)
+    rows, cfg, dataset_source = load_rows(args.dataset, args.max_samples)
     print(f"Loaded {len(rows)} {args.dataset} samples from {dataset_source}", flush=True)
 
     args.dataset_metadata = {key: cfg.get(key) for key in ('load', 'filename', 'source', 'revision', 'fingerprint', 'samples', 'sample_sha256')}
     prepared = []
     for row in rows:
         question = cfg['question'](row)
-        prompt = sync._build_prompt(question, args.enable_thinking)
-        text = sync._apply_chat_template(tokenizer, prompt['messages'], args.enable_thinking)
+        prompt = build_prompt(question, args.enable_thinking)
+        text = apply_chat_template(tokenizer, prompt['messages'], args.enable_thinking)
         prepared.append(tokenizer.encode(text, return_tensors='pt'))
     if not prepared:
         verifier_client.close()
@@ -1605,12 +1610,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             verifier_client,
             prepared,
             max_new_tokens=args.max_new_tokens,
-            eos_token_ids=eos_token_ids,
+            eos_ids=eos_ids,
             temperature=args.temperature,
             target_top_k=args.target_top_k,
             target_top_p=args.target_top_p,
         )
-        args.baseline_timing = sync.summarize_timing_metrics(
+        args.baseline_timing = summarize_timing_metrics(
             args.baseline_rows,
             elapsed_s=sum(row['decode_elapsed_s'] for row in args.baseline_rows),
         )
@@ -1631,7 +1636,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if args.warmup_new_tokens:
         print('WARMUP (excluded from timing)', flush=True)
         run_d3d_generate_async(draft, verifier_client, prepared[0], args.warmup_new_tokens,
-                                eos_token_ids, args.temperature, **generation_options)
+                                eos_ids, args.temperature, **generation_options)
     start_time = sync._synced_time()
     per_prompt: list[dict[str, Any]] = []
     spec_ok = spec_eval = 0
@@ -1642,14 +1647,14 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     for i, row in enumerate(rows):
         question = cfg["question"](row)
-        gold = sync._gold_for_row(cfg, row)
+        gold = gold_for_row(cfg, row)
         ids = prepared[i]
         st = run_d3d_generate_async(
             draft,
             verifier_client,
             ids,
             args.max_new_tokens,
-            eos_token_ids,
+            eos_ids,
             args.temperature,
             block_size=args.block_size,
             denoising_steps=args.denoising_steps,
@@ -1712,7 +1717,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             },
         }
 
-        pred, hit = sync._score_text(cfg, result["text"], gold)
+        pred, hit = score_text(cfg, result["text"], gold)
         if hit is not None:
             spec_eval += 1
             spec_ok += int(hit)
@@ -1728,12 +1733,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         )
         per_prompt.append(result)
 
-        payload = _build_async_payload(args, per_prompt, draft_tokens, eos_token_ids, start_time, dataset_source, model_type)
+        payload = _build_async_payload(args, per_prompt, draft_tokens, eos_ids, start_time, dataset_source, model_type)
         payload["accuracy"] = {
             "spec_evaluated": spec_eval,
             "spec_accuracy": spec_ok / spec_eval if spec_eval else None,
         }
-        sync._write_json(args.output_json, payload)
+        write_json(args.output_json, payload)
         if args.verbose:
             print(
                 json.dumps(
@@ -1749,12 +1754,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                 flush=True,
             )
 
-    payload = _build_async_payload(args, per_prompt, draft_tokens, eos_token_ids, start_time, dataset_source, model_type)
+    payload = _build_async_payload(args, per_prompt, draft_tokens, eos_ids, start_time, dataset_source, model_type)
     payload["accuracy"] = {
         "spec_evaluated": spec_eval,
         "spec_accuracy": spec_ok / spec_eval if spec_eval else None,
     }
-    sync._write_json(args.output_json, payload)
+    write_json(args.output_json, payload)
     compact = _write_async_summary(args, payload)
     verifier_client.close()
     print(json.dumps(compact, ensure_ascii=False, indent=2), flush=True)

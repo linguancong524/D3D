@@ -93,7 +93,7 @@ class PublicReleaseTests(unittest.TestCase):
                 utils.check_hardware('cuda:0', 'cuda:0')
 
     def test_dataset_jsonl_download_preserves_source_rows(self):
-        utils = importlib.import_module('common.runtime')
+        utils = importlib.import_module('common.data')
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'test6.jsonl'
             source.write_text('{"question_content": "solve", "starter_code": "def solve():"}\n')

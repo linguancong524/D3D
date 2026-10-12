@@ -19,7 +19,9 @@ from transformers import AutoTokenizer
 from serving.engine import Engine
 from serving.baseline_concurrency import generate as generate_ar
 from single import eval_sync as original
+from common.data import load_rows
 from common.runtime import check_hardware, check_paged_capacity, resolve_model_path, runtime_metadata
+from common.text import apply_chat_template
 
 TARGET='Qwen/Qwen3-8B'
 DRAFT='lingc8/D3D-1.7B-to-8B'
@@ -62,14 +64,14 @@ def main():
     datasets={}
     dataset_metadata={}
     for name in a.datasets:
-        rows,cfg,source=original.load_rows(name,a.max_samples or None)
+        rows,cfg,source=load_rows(name,a.max_samples or None)
         if not rows:
             raise ValueError(f'Dataset contains no prompts: {name}')
         dataset_metadata[name]={key: cfg.get(key) for key in ('load', 'filename', 'source', 'revision', 'fingerprint', 'samples', 'sample_sha256')}
-        texts=[original._apply_chat_template(tok,[{'role':'user','content':cfg['question'](r)}],False) for r in rows]
+        texts=[apply_chat_template(tok,[{'role':'user','content':cfg['question'](r)}],False) for r in rows]
         datasets[name]=[tok.encode(t) for t in texts]
     check_paged_capacity(target_path,draft_path,datasets,a.concurrency,a.max_new_tokens,a.pages,
-                         anchor_num=a.anchor_num)
+                                  anchor_num=a.anchor_num)
     engine=Engine(target_path,draft_path,draft_microbatch=a.draft_microbatch,pages=a.pages,backup=a.backup,seed=a.seed,anchor_num=a.anchor_num,fast_miss_anchors=a.fast_miss_anchors)
     payload={'config':vars(a),'hardware':[torch.cuda.get_device_name(i) for i in [0,1]],
              'torch':torch.__version__,'ssd_commit':'d7eb8fa0edb77a6d0876af1903367b9bb82f54e7',

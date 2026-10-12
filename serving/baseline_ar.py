@@ -14,10 +14,10 @@ from transformers import AutoTokenizer
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(ROOT))
-sys.path.insert(0, str(ROOT / 'single'))
 from serving.target_process import TargetProcess
 from serving.backend import Sequence, SamplingParams
-from single import eval_sync as original
+from common.data import load_rows
+from common.text import apply_chat_template
 
 
 def decode(worker, prompts, steps, capture=False):
@@ -69,8 +69,8 @@ def main():
     datasets = {}
     sampling = {}
     for name in a.datasets:
-        rows, cfg, _ = original.load_rows(name, a.max_samples)
-        texts = [original._apply_chat_template(tok, [{'role': 'user', 'content': cfg['question'](r)}], False)
+        rows, cfg, _ = load_rows(name, a.max_samples)
+        texts = [apply_chat_template(tok, [{'role': 'user', 'content': cfg['question'](r)}], False)
                  for r in rows]
         if not texts:
             raise ValueError(f'No prompts for {name}')

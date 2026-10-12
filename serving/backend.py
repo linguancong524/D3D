@@ -13,7 +13,7 @@ from ssd.models.qwen3 import Qwen3ForCausalLM
 from ssd.layers.rotary_embedding import get_rope
 from ssd.engine.block_manager import BlockManager
 from ssd.engine.sequence import Sequence
-from ssd.sampling_params import SamplingParams
+from ssd.sampling_params import SamplingParams  # noqa: F401 (re-exported for serving.engine)
 from ssd.utils.loader import load_model
 from ssd.utils.context import set_context, reset_context
 from serving.d3d_adapter import D3DPageModel

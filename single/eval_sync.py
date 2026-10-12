@@ -2,33 +2,43 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
-import re
 import statistics
 import sys
 import time
-from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any, Iterable
+from typing import Any
 
 import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 from transformers.cache_utils import DynamicCache
+
+from common.data import DATASETS, build_prompt, gold_for_row, load_rows, score_text
+from common.io import safe_custom_tag, safe_tag, write_json
+from common.metrics import compact_acceptance, headline_metrics, summarize_timing_metrics
+from common.runtime import check_hardware, resolve_dtype, resolve_model_path, runtime_metadata
+from common.text import apply_chat_template, contains_stop, eos_token_ids, tokens_to_int_list, trim_at_stop
 
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from common.runtime import check_hardware, load_dataset_jsonl, resolve_model_path, runtime_metadata
-LOCAL_CACHE_DIR = Path(os.environ.get("D3D_DATA_CACHE", REPO_ROOT / "data_cache"))
-LOCAL_ANSWER_DIR = Path(os.environ.get("D3D_ANSWER_CACHE", REPO_ROOT / "answer_cache"))
 MASK_ID = 151669
 STOP_TOKEN_IDS = [151643, 151645]
+
+
+
+
+
+
+
+
+
+
 
 
 @dataclass
@@ -43,15 +53,8 @@ class AcceptanceStep:
     mode: str = "draft"
 
 
-def _safe_tag(path_or_name: str) -> str:
-    tag = Path(path_or_name).name or str(path_or_name).strip().replace("/", "_")
-    return re.sub(r"[^A-Za-z0-9_.-]+", "_", tag) or "model"
 
 
-def _safe_custom_tag(tag: str | None, fallback: str) -> str:
-    if tag:
-        return re.sub(r"[^A-Za-z0-9_.-]+", "_", str(tag).strip()) or fallback
-    return fallback
 
 
 def _checkpoint_model_type(model_path: str) -> str | None:
@@ -71,20 +74,6 @@ def _is_d3d_checkpoint(model_path: str) -> bool:
     return _checkpoint_model_type(model_path) == "d3d"
 
 
-def _resolve_dtype(dtype_name: str):
-    if dtype_name == "auto":
-        return "auto"
-    mapping = {
-        "bf16": torch.bfloat16,
-        "bfloat16": torch.bfloat16,
-        "fp16": torch.float16,
-        "float16": torch.float16,
-        "fp32": torch.float32,
-        "float32": torch.float32,
-    }
-    if dtype_name not in mapping:
-        raise ValueError(f"Unsupported dtype {dtype_name!r}")
-    return mapping[dtype_name]
 
 
 def _ensure_loss_kwargs_compat() -> None:
@@ -373,61 +362,14 @@ def _sample_with_sparse_probs(
     return tokens, support_ids, support_probs
 
 
-def _apply_chat_template(tokenizer: Any, messages: list[dict[str, Any]], enable_thinking: bool) -> str:
-    try:
-        return tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=enable_thinking,
-        )
-    except TypeError:
-        return tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
 
 
-def _eos_token_ids(tokenizer: Any, explicit: list[int] | None) -> list[int]:
-    values: list[int] = []
-    eos = getattr(tokenizer, "eos_token_id", None)
-    if isinstance(eos, int):
-        values.append(eos)
-    elif isinstance(eos, (list, tuple)):
-        values.extend(int(x) for x in eos)
-    extra = getattr(tokenizer, "eos_token_ids", None)
-    if isinstance(extra, (list, tuple)):
-        values.extend(int(x) for x in extra)
-    # Keep legacy shell-provided stop IDs for Qwen3 while also honoring a
-    # newer verifier tokenizer (Qwen3.6 uses 248046/248044).
-    if explicit:
-        values.extend(int(x) for x in explicit)
-    deduped: list[int] = []
-    for value in values:
-        if value not in deduped:
-            deduped.append(value)
-    return deduped
 
 
-def _contains_stop(tokens, stop_token_ids: Iterable[int] | None):
-    if stop_token_ids is None:
-        return False
-    return any((tokens == int(stop_id)).any().item() for stop_id in stop_token_ids)
 
 
-def _trim_at_stop(output_ids, num_input_tokens: int, stop_token_ids: Iterable[int] | None):
-    if stop_token_ids is None:
-        return output_ids
-    stops = torch.tensor(list(stop_token_ids), device=output_ids.device)
-    hits = torch.isin(output_ids[0, num_input_tokens:], stops).nonzero(as_tuple=True)[0]
-    if hits.numel() == 0:
-        return output_ids
-    return output_ids[:, : num_input_tokens + hits[0].item() + 1]
 
 
-def _tokens_to_int_list(tokens: Any) -> list[int]:
-    if tokens is None:
-        return []
-    if isinstance(tokens, torch.Tensor):
-        return [int(t) for t in tokens.detach().cpu().tolist()]
-    return [int(t) for t in tokens]
 
 
 def summarize_acceptance(steps: list[AcceptanceStep], draft_tokens: int) -> dict[str, Any]:
@@ -476,49 +418,8 @@ def summarize_acceptance(steps: list[AcceptanceStep], draft_tokens: int) -> dict
     }
 
 
-def summarize_timing_metrics(per_prompt: list[dict[str, Any]], *, elapsed_s: float) -> dict[str, float]:
-    total_output_tokens = sum(int(x.get("output_tokens", 0)) for x in per_prompt)
-    total_decode_tokens = sum(int(x.get("decode_tokens", x.get("output_tokens", 0))) for x in per_prompt)
-    decode_times = [float(x.get("decode_elapsed_s", 0.0)) for x in per_prompt]
-    prompt_tps = [float(x.get("tokens_per_s", 0.0)) for x in per_prompt]
-    time_per_output_token = [
-        float(x.get("time_per_output_token", 0.0))
-        for x in per_prompt
-        if int(x.get("decode_tokens", x.get("output_tokens", 0))) > 0
-    ]
-    total_decode_elapsed_s = sum(decode_times)
-    aggregate_decode_tps = total_decode_tokens / total_decode_elapsed_s if total_decode_elapsed_s > 0 else 0.0
-    mean_tokens_per_s = statistics.fmean(prompt_tps) if prompt_tps else 0.0
-    return {
-        "total_decode_elapsed_s": total_decode_elapsed_s,
-        "mean_tokens_per_s": mean_tokens_per_s,
-        "mean_prompt_decode_tps": mean_tokens_per_s,
-        "mean_time_per_output_token": (
-            statistics.fmean(time_per_output_token) if time_per_output_token else 0.0
-        ),
-        "aggregate_decode_tokens_per_s": aggregate_decode_tps,
-        "aggregate_decode_tps": aggregate_decode_tps,
-        "elapsed_tokens_per_s": total_output_tokens / float(elapsed_s) if elapsed_s > 0 else 0.0,
-    }
 
 
-def headline_metrics(
-    d3d_tps: float,
-    baseline_tps: float,
-    accept_length: float,
-    *,
-    metric: str = "decode",
-) -> dict[str, Any]:
-    """Report the two headline numbers: speedup over the single-card AR baseline and accept length."""
-    d3d_tps = float(d3d_tps or 0.0)
-    baseline_tps = float(baseline_tps or 0.0)
-    return {
-        "metric": metric,
-        "d3d_tps": d3d_tps,
-        "baseline_tps": baseline_tps,
-        "speedup": d3d_tps / baseline_tps if baseline_tps > 0 else None,
-        "accept_length": float(accept_length or 0.0),
-    }
 
 
 def _effective_draft_tokens(draft_tokens: int | None, block_size: int) -> int:
@@ -1054,13 +955,13 @@ def run_d3d_generate(
             )
 
         generated = output_ids[:, num_input_tokens : min(start + 1, max_length)]
-        stopped = _contains_stop(generated, stop_token_ids)
+        stopped = contains_stop(generated, stop_token_ids)
         stopped_blocks.append(bool(stopped))
         if stopped:
             break
 
     output_ids = output_ids[:, : min(start + 1, max_length)]
-    output_ids = _trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
+    output_ids = trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
     _sync(device)
     total_time = time.perf_counter() - start_time
 
@@ -1154,9 +1055,6 @@ def run_d3d_generate_cached(
     kv_len = num_input_tokens
     draft_kv_len = num_input_tokens
     pending_commit = input_ids.to(draft_device).new_empty((1, 0))
-
-    _sync(device)
-    start_time = time.perf_counter()
 
     _sync(device)
     verifier_prefill_start = time.perf_counter()
@@ -1367,13 +1265,13 @@ def run_d3d_generate_cached(
             output_ids[:, kv_len] = anchor
 
         generated = output_ids[:, num_input_tokens : min(kv_len + 1, max_length)]
-        stopped = _contains_stop(generated, stop_token_ids)
+        stopped = contains_stop(generated, stop_token_ids)
         stopped_blocks.append(bool(stopped))
         if stopped:
             break
 
     output_ids = output_ids[:, : min(kv_len + 1, max_length)]
-    output_ids = _trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
+    output_ids = trim_at_stop(output_ids, num_input_tokens, stop_token_ids)
     _sync(device)
     decoding_time = time.perf_counter() - decoding_start
 
@@ -1411,254 +1309,34 @@ def run_d3d_generate_cached(
     )
 
 
-def _gsm8k_gold(row):
-    return row["answer"].split("####")[-1].strip().replace(",", "")
 
 
-def _boxed(text):
-    idx = text.rfind("\\boxed")
-    if idx == -1:
-        return None
-    i = text.find("{", idx)
-    if i == -1:
-        return None
-    depth, j = 0, i
-    while j < len(text):
-        if text[j] == "{":
-            depth += 1
-        elif text[j] == "}":
-            depth -= 1
-            if depth == 0:
-                return text[i + 1 : j].strip()
-        j += 1
-    return None
 
 
-def _humaneval_question(row):
-    prompt = row.get("prompt", "")
-    if prompt.startswith("Write a solution to the following problem"):
-        return prompt
-    return (
-        "Write a solution to the following problem and make sure that it passes the tests:\n"
-        f"```python\n{prompt}\n```"
-    )
 
 
-def _livecodebench_question(row):
-    if row.get('prompt'):
-        return row['prompt']
-    parts = ['Write a solution to the following problem and make sure that it passes the tests:']
-    for field in ('question_title', 'question_content'):
-        value = str(row.get(field) or '').replace('\r\n', '\n').strip()
-        if value:
-            parts.append(value)
-    if row.get('starter_code'):
-        parts.append(f"Starter code:\n```python\n{row['starter_code']}\n```")
-    return '\n\n'.join(parts)
 
 
-DATASETS = {
-    "gsm8k": {
-        "load": ("openai/gsm8k", "main", "test"),
-        "question": lambda r: (
-            r.get("prompt")
-            or r["question"] + "\nPlease reason step by step, and put your final answer within \\boxed{}."
-        ),
-        "gold": _gsm8k_gold,
-        "score": "math",
-    },
-    "math500": {
-        "load": ("HuggingFaceH4/MATH-500", None, "test"),
-        "question": lambda r: (
-            r.get("prompt")
-            or r["problem"] + "\nPlease reason step by step, and put your final answer within \\boxed{}."
-        ),
-        "gold": lambda r: r["answer"].strip(),
-        "score": "math",
-    },
-    "aime25": {
-        "load": ("MathArena/aime_2025", None, "train"),
-        "question": lambda r: (
-            r.get("prompt")
-            or r["problem"] + "\nPlease reason step by step, and put your final answer within \\boxed{}."
-        ),
-        # Some local prompt caches intentionally contain no answer file.
-        # Keep generation/throughput evaluation available and score accuracy only
-        # when a caller supplies an answer-enriched row.
-        "gold": lambda r: (
-            str(r["answer"]).strip() if r.get("answer") is not None else None
-        ),
-        "score": "math",
-    },
-    "humaneval": {
-        "load": ("openai/openai_humaneval", None, "test"),
-        "question": _humaneval_question,
-        "gold": None,
-        "score": None,
-    },
-    "mbpp": {
-        "load": ("google-research-datasets/mbpp", "sanitized", "test"),
-        "question": lambda r: r.get("prompt") or r["text"],
-        "gold": None,
-        "score": None,
-    },
-    "mt-bench": {
-        "load": ("HuggingFaceH4/mt_bench_prompts", None, "train"),
-        "question": lambda r: (
-            r.get("prompt")
-            if isinstance(r.get("prompt"), str)
-            else (r.get("prompt") or [""])[0]
-        ),
-        "gold": None,
-        "score": None,
-    },
-    "livecodebench-v6": {
-        "load": ("livecodebench/code_generation_lite", None, "test"),
-        "filename": "test6.jsonl",
-        "question": _livecodebench_question,
-        "gold": None,
-        "score": None,
-    },
-}
 
 
-def _load_jsonl(path: Path):
-    with path.open("r") as f:
-        return [json.loads(line) for line in f if line.strip()]
 
 
-def _load_local_dataset(dataset: str):
-    cache_path = LOCAL_CACHE_DIR / f"{dataset}.jsonl"
-    answer_path = LOCAL_ANSWER_DIR / f"{dataset}.jsonl"
-    if not cache_path.exists():
-        return None
-    prompts = _load_jsonl(cache_path)
-    answers = _load_jsonl(answer_path) if answer_path.exists() else [None] * len(prompts)
-    if len(prompts) != len(answers):
-        raise ValueError(f"local cache length mismatch: {cache_path}={len(prompts)} {answer_path}={len(answers)}")
-    rows = []
-    for idx, (prompt_row, answer_row) in enumerate(zip(prompts, answers)):
-        turns = prompt_row.get("turns") or []
-        if not turns:
-            raise ValueError(f"missing turns in {cache_path}")
-        row = dict(answer_row) if answer_row is not None else {}
-        row.setdefault("dataset", dataset)
-        row.setdefault("dataset_index", idx)
-        row["prompt"] = turns[0]
-        if dataset == "gsm8k" and answer_row is not None:
-            row["gold"] = _gsm8k_gold(answer_row)
-        elif dataset == "math500" and answer_row is not None:
-            row["gold"] = answer_row["answer"].strip()
-        rows.append(row)
-    return rows
 
 
-def load_rows(dataset: str, max_samples: int | None):
-    cfg = dict(DATASETS[dataset])
-    rows = _load_local_dataset(dataset)
-    dataset_source = "local_cache"
-    if rows is None:
-        if cfg.get("load") is None:
-            raise FileNotFoundError(f"missing local cache for {dataset}: {LOCAL_CACHE_DIR / f'{dataset}.jsonl'}")
-        from datasets import load_dataset
-
-        name, subset, split = cfg["load"]
-        options = {'revision': os.environ.get('D3D_DATASET_REVISION', 'main')}
-        if dataset == 'livecodebench-v6':
-            rows, metadata = load_dataset_jsonl(name, cfg['filename'], options['revision'])
-            cfg['fingerprint'] = metadata['sha256']
-        else:
-            loaded = load_dataset(name, subset, split=split, **options)
-            cfg['fingerprint'] = loaded._fingerprint
-            rows = list(loaded)
-        cfg['revision'] = options['revision']
-        dataset_source = "huggingface"
-        for idx, row in enumerate(rows):
-            row.setdefault("dataset", dataset)
-            row.setdefault("dataset_index", idx)
-    if max_samples and len(rows) > max_samples:
-        rows = rows[:max_samples]
-    cfg['source'] = dataset_source
-    cfg['samples'] = len(rows)
-    cfg['sample_sha256'] = hashlib.sha256(
-        json.dumps(rows, sort_keys=True, default=str).encode()
-    ).hexdigest()
-    return rows, cfg, dataset_source
 
 
-def _extract_pred(text):
-    boxed = _boxed(text)
-    if boxed is not None:
-        return boxed.replace("$", "").replace(",", "").strip()
-    nums = re.findall(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
-    return nums[-1] if nums else None
 
 
-def _norm(x):
-    if x is None:
-        return None
-    x = x.strip().rstrip(".").replace("\\!", "").replace(" ", "")
-    try:
-        f = float(x)
-        if not math.isfinite(f):
-            return x
-        return str(int(f)) if f == int(f) else str(f)
-    except (ValueError, TypeError, OverflowError):
-        return x
 
 
-def _score_text(cfg: dict[str, Any], text: str, gold: str | None):
-    if cfg.get("score") != "math" or gold is None:
-        return None, None
-    pred = _extract_pred(text)
-    return pred, pred is not None and _norm(pred) == _norm(gold)
 
 
-def _gold_for_row(cfg: dict[str, Any], row):
-    if "gold" in row:
-        return row["gold"]
-    gold_fn = cfg.get("gold")
-    if not gold_fn:
-        return None
-    try:
-        return gold_fn(row)
-    except KeyError:
-        return None
 
 
-def _percentile(values: list[int], q: float) -> float:
-    if not values:
-        return 0.0
-    xs = sorted(values)
-    idx = int(round((len(xs) - 1) * q))
-    return float(xs[max(0, min(idx, len(xs) - 1))])
 
 
-def _compact_acceptance(per_sample_accept: list[float], flat_accept: list[int], block_size: int) -> dict[str, Any]:
-    hist = Counter(int(x) for x in flat_accept)
-    return {
-        "num_samples": len(per_sample_accept),
-        "num_verify_steps": len(flat_accept),
-        "block_size": int(block_size),
-        "mean_accept_per_sample": statistics.fmean(per_sample_accept) if per_sample_accept else 0.0,
-        "mean_accept_per_verify": statistics.fmean(flat_accept) if flat_accept else 0.0,
-        "median_accept_per_verify": statistics.median(flat_accept) if flat_accept else 0.0,
-        "p90_accept_per_verify": _percentile(flat_accept, 0.90),
-        "p95_accept_per_verify": _percentile(flat_accept, 0.95),
-        "min_accept_per_verify": min(flat_accept) if flat_accept else 0,
-        "max_accept_per_verify": max(flat_accept) if flat_accept else 0,
-        "histogram": {str(k): hist.get(k, 0) for k in range(int(block_size) + 1)},
-    }
 
 
-def _write_json(path: str | None, payload: dict[str, Any]) -> None:
-    if not path:
-        return
-    out_path = Path(path)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = out_path.with_name(f".{out_path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2))
-    os.replace(tmp_path, out_path)
 
 
 def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | None) -> dict[str, Any]:
@@ -1686,7 +1364,7 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         "max_new_tokens": args.max_new_tokens,
         "use_kvcache": bool(args.use_kvcache),
         "acceptance": {
-            **_compact_acceptance(per_sample, flat, args.block_size),
+            **compact_acceptance(per_sample, flat, args.block_size),
             "mean_accepted_draft_tokens_per_verify": float(summary.get("avg_accepted_draft_tokens", 0.0)),
             "draft_accept_rate": float(summary.get("draft_accept_rate", 0.0)),
             "reject_at_0_rate": float(summary.get("reject_at_0_rate", 0.0)),
@@ -1712,15 +1390,10 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         metric="decode_tps_excluding_prefill",
     )
     if summary_json:
-        _write_json(summary_json, compact)
+        write_json(summary_json, compact)
     return compact
 
 
-def _build_prompt(question: str, enable_thinking: bool) -> dict[str, Any]:
-    return {
-        "messages": [{"role": "user", "content": question}],
-        "enable_thinking": enable_thinking,
-    }
 
 
 def _d3d_steps(
@@ -1736,16 +1409,16 @@ def _d3d_steps(
     for i, length in enumerate(acceptance_lengths):
         accepted = max(int(length) - 1, 0)
         if draft_token_blocks is not None and i < len(draft_token_blocks):
-            draft_tokens = _tokens_to_int_list(draft_token_blocks[i])
+            draft_tokens = tokens_to_int_list(draft_token_blocks[i])
         else:
             draft_tokens = [0] * max(int(block_size) - 1, 0)
         target_tokens = (
-            _tokens_to_int_list(target_token_blocks[i])
+            tokens_to_int_list(target_token_blocks[i])
             if target_token_blocks is not None and i < len(target_token_blocks)
             else []
         )
         emitted_tokens = (
-            _tokens_to_int_list(emitted_token_blocks[i])
+            tokens_to_int_list(emitted_token_blocks[i])
             if emitted_token_blocks is not None and i < len(emitted_token_blocks)
             else []
         )
@@ -1803,20 +1476,20 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     tokenizer_path = resolve_model_path(args.tokenizer) if args.tokenizer else target_path
     args.runtime = runtime_metadata({'target': target_path, 'draft': draft_path,
                                      'tokenizer': tokenizer_path})
-    args.drafter_tag = _safe_custom_tag(args.drafter_tag, _safe_tag(args.drafter))
-    args.verifier_tag = _safe_tag(args.verifier)
+    args.drafter_tag = safe_custom_tag(args.drafter_tag, safe_tag(args.drafter))
+    args.verifier_tag = safe_tag(args.verifier)
     args.verifier, args.drafter, args.tokenizer = target_path, draft_path, tokenizer_path
     model_type = args.model_type or _checkpoint_model_type(args.drafter)
-    if args.use_kvcache and model_type not in {"d3d", "qwen3"}:
+    if args.use_kvcache and model_type != "d3d":
         raise ValueError("--use-kvcache is currently supported only for D3D/Qwen3 single-chain paths")
 
-    dtype = _resolve_dtype(args.dtype)
+    dtype = resolve_dtype(args.dtype)
     target_attn = os.environ.get("TARGET_ATTN_IMPLEMENTATION", args.target_attn_implementation)
     draft_attn = os.environ.get("DRAFT_ATTN_IMPLEMENTATION", args.draft_attn_implementation)
     args.target_attn_implementation = target_attn
     args.draft_attn_implementation = draft_attn
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=False)
-    eos_token_ids = _eos_token_ids(tokenizer, args.eos_token_id)
+    eos_token_ids = eos_token_ids(tokenizer, args.eos_token_id)
     if not eos_token_ids:
         eos_token_ids = STOP_TOKEN_IDS
 
@@ -1847,61 +1520,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
     for i, row in enumerate(rows):
         question = cfg["question"](row)
-        gold = _gold_for_row(cfg, row)
-        prompt = _build_prompt(question, args.enable_thinking)
+        gold = gold_for_row(cfg, row)
+        prompt = build_prompt(question, args.enable_thinking)
 
-        if model_type == "qwen3":
-            text = _apply_chat_template(tokenizer, prompt["messages"], args.enable_thinking)
-            ids = tokenizer.encode(text, return_tensors="pt").to(verifier_device)
-            st = run_causal_generate(
-                draft,
-                target,
-                ids,
-                args.max_new_tokens,
-                eos_token_ids,
-                args.temperature,
-                block_size=args.block_size,
-                return_stats=True,
-            )
-            out_text = tokenizer.decode(st.output_ids[0, st.num_input_tokens:], skip_special_tokens=False)
-            steps = _d3d_steps(
-                [int(x) for x in st.acceptance_lengths],
-                args.block_size,
-                getattr(st, "draft_token_blocks", None),
-                getattr(st, "target_token_blocks", None),
-                getattr(st, "emitted_token_blocks", None),
-                getattr(st, "stopped_blocks", None),
-            )
-            result = {
-                "input_tokens": int(st.num_input_tokens),
-                "output_tokens": int(st.num_output_tokens),
-                "text": out_text,
-                "summary": summarize_acceptance(
-                    [_summary_step(step) for step in steps],
-                    draft_tokens,
-                ),
-                "steps": steps,
-                "target_first_token": None,
-                "decode_elapsed_s": float(st.decode_elapsed_s),
-                "tokens_per_s": (
-                    int(st.num_output_tokens) / float(st.decode_elapsed_s)
-                    if float(st.decode_elapsed_s) > 0
-                    else 0.0
-                ),
-                "time_per_output_token": float(st.time_per_output_token),
-                "timing": {
-                    "draft_time": float(st.draft_time),
-                    "draft_prefill_time": float(getattr(st, "draft_prefill_time", 0.0)),
-                    "verify_time": float(st.verify_time),
-                    "verifier_prefill_time": float(st.verifier_prefill_time),
-                    "mean_draft_time_per_step": float(st.mean_draft_time_per_step),
-                    "mean_verify_time_per_step": float(st.mean_verify_time_per_step),
-                    "time_per_output_token": float(st.time_per_output_token),
-                    "causal_drafter": True,
-                },
-            }
-        elif model_type == "d3d":
-            text = _apply_chat_template(tokenizer, prompt["messages"], args.enable_thinking)
+        if model_type == "d3d":
+            text = apply_chat_template(tokenizer, prompt["messages"], args.enable_thinking)
             ids = tokenizer.encode(text, return_tensors="pt").to(verifier_device)
             d3d_generate = run_d3d_generate_cached if args.use_kvcache else run_d3d_generate
             st = d3d_generate(
@@ -1975,7 +1598,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         else:
             raise ValueError(f"unsupported drafter model_type={model_type!r}")
 
-        pred, hit = _score_text(cfg, result["text"], gold)
+        pred, hit = score_text(cfg, result["text"], gold)
         if hit is not None:
             spec_eval += 1
             spec_ok += int(hit)
@@ -1996,7 +1619,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "spec_evaluated": spec_eval,
             "spec_accuracy": spec_ok / spec_eval if spec_eval else None,
         }
-        _write_json(args.output_json, payload)
+        write_json(args.output_json, payload)
         if args.verbose:
             print(
                 json.dumps(
@@ -2016,7 +1639,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "spec_evaluated": spec_eval,
         "spec_accuracy": spec_ok / spec_eval if spec_eval else None,
     }
-    _write_json(args.output_json, payload)
+    write_json(args.output_json, payload)
     compact = _summary_from_payload(args, payload, args.summary_json)
     print(json.dumps(compact, ensure_ascii=False, indent=2), flush=True)
     return payload
