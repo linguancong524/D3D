@@ -203,12 +203,12 @@ breakdown:
   `_c4.json`, …); every cell carries `baseline_tps`, `speedup`, `accept_length`
   and `anchor_num`, and the top-level `summary` list collects them per dataset.
 
-Both sides of `speedup` always share the same timing boundary: single-request
-runs compare decode-only TPS (prefill and the prefill-emitted first target
-token excluded), while concurrent runs compare end-to-end TPS (prefill,
-admission, decode, and drain included). The two boundaries are not comparable.
-Single-request summaries record this in `headline.metric`; concurrent cells
-record it as `timing_boundary`.
+Single-request runs decode on the Transformers backend, while concurrent runs
+use the SSD paged-KV backend. Both sides of `speedup` always share the same
+timing boundary: single-request runs compare decode-only TPS (prefill and the
+prefill-emitted first target token excluded), while concurrent runs compare
+end-to-end TPS (prefill, admission, decode, and drain included). The two
+boundaries are not comparable.
 
 Set `D3D_BASELINE=0` (scripts) or `--no-baseline` (Python entry points) to skip
 the baseline. `speedup` is then left empty and the D3D run itself is unchanged.

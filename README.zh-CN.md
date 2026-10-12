@@ -196,10 +196,10 @@ summary 还包含原始吞吐（`d3d_tps` 与 `baseline_tps`）、有评分器�
   `baseline_tps`、`speedup`、`accept_length` 与 `anchor_num`，顶层 `summary`
   列表按数据集汇总。
 
-`speedup` 两侧始终共用同一条计时边界：单请求比较 decode-only TPS（排除
-prefill 以及 prefill 产生的第一个目标 token），并发比较端到端 TPS（包含
-prefill、admission、decode 与 drain）。两种边界不可直接比较。单请求 summary
-把它记在 `headline.metric`，并发 cell 记在 `timing_boundary`。
+单请求走 Transformers 后端，并发走 SSD（paged KV）后端。`speedup` 两侧始终
+共用同一条计时边界：单请求比较 decode-only TPS（排除 prefill 以及 prefill
+产生的第一个目标 token），并发比较端到端 TPS（包含 prefill、admission、
+decode 与 drain）。两种边界不可直接比较。
 
 脚本设 `D3D_BASELINE=0`、或 Python 入口加 `--no-baseline` 可以跳过 baseline；
 此时 `speedup` 留空，D3D 运行本身不变。
