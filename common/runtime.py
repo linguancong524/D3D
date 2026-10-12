@@ -64,6 +64,16 @@ def check_paged_capacity(target, draft, datasets, concurrency, max_new_tokens, p
                                      f'at concurrency {count}; configured pages={pages}')
 
 
+def anchor_num_for_concurrency(concurrency: int, configured: int) -> int:
+    """Anchor branches are a single-request setting; concurrent cells use one.
+
+    Packing several anchor candidates per rejection position multiplies the
+    draft branch pages, which no longer fits the paged budget once requests
+    overlap.
+    """
+    return int(configured) if int(concurrency) <= 1 else 1
+
+
 def runtime_metadata(models=None):
     import torch
 

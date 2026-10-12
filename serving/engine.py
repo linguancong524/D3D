@@ -145,8 +145,11 @@ class Engine:
         return out
 
     @torch.inference_mode()
-    def generate(self,prompts,concurrency,max_new_tokens=256,ignore_eos=False,eos=(151643,151645)):
+    def generate(self,prompts,concurrency,max_new_tokens=256,ignore_eos=False,eos=(151643,151645),anchor_num=None):
         if concurrency<1 or max_new_tokens<1: raise ValueError('positive concurrency and output length required')
+        if anchor_num is not None:
+            if int(anchor_num)<1: raise ValueError('anchor_num must be positive')
+            self.A=int(anchor_num)
         waiting=iter(enumerate(prompts)); running=[]; outputs=[]; exhausted=False
         self.backup_rng=torch.Generator(device=self.draft.device).manual_seed(self.seed)
         started=time.perf_counter(); max_active=0; batch_sizes=[]

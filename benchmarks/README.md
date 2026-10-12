@@ -76,7 +76,10 @@ Override datasets with `D3D_DATASETS="math500 humaneval"`; select a local or
 Hub checkpoint with `D3D_TARGET_MODEL` and `D3D_DRAFT_MODEL`. The scripts use
 block size 16, one denoising step, three backup anchors, greedy decoding, and
 strictly causal draft-prefix attention (matching the serving backend), with
-thinking disabled. `D3D_MAX_SAMPLES` changes the sample cap.
+thinking disabled. Concurrent cells use one anchor when concurrency is greater
+than one; multiple anchor branches are a single-request setting and would not
+fit the paged budget with overlapping requests. `D3D_MAX_SAMPLES` changes the
+sample cap.
 `D3D_MAX_NEW_TOKENS` overrides the default 2048-token limit for smoke runs;
 these shorter runs are not formal protocol results. The concurrent
 script accepts `D3D_CONCURRENCY="1 4 8 16"`.

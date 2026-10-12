@@ -4,10 +4,15 @@ import unittest
 from pathlib import Path
 
 from common.metrics import headline_metrics, summarize_timing_metrics
-from common.runtime import check_paged_capacity
+from common.runtime import anchor_num_for_concurrency, check_paged_capacity
 
 
 class BenchmarkAccountingTests(unittest.TestCase):
+    def test_concurrent_cells_use_a_single_anchor(self):
+        self.assertEqual(anchor_num_for_concurrency(1, 3), 3)
+        self.assertEqual(anchor_num_for_concurrency(4, 3), 1)
+        self.assertEqual(anchor_num_for_concurrency(16, 2), 1)
+
     def test_headline_metrics_report_speedup_and_accept_length(self):
         metrics = headline_metrics(d3d_tps=120.0, baseline_tps=40.0, accept_length=2.5)
         self.assertEqual(metrics['d3d_tps'], 120.0)

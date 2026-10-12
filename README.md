@@ -145,7 +145,7 @@ capacity setting for the released 24-layer draft, long prompts, or
 | `D3D_DRAFT_MODEL` | Draft checkpoint path / Hub ID | `lingc8/D3D-1.7B-to-8B` |
 | `D3D_MAX_NEW_TOKENS` | Generation cap | 128 for quick starts; 2048 for benchmarks |
 | `D3D_BLOCK_SIZE` | Single-request draft block size | 16 |
-| `D3D_ANCHOR_NUM` | Single-request anchor candidate count | 3 |
+| `D3D_ANCHOR_NUM` | Anchor candidate count for single-request runs (concurrent cells use 1) | 3 |
 | `D3D_CONCURRENCY` | Concurrent quick-start request count | 4 |
 | `D3D_PAGES` | Concurrent KV pages per device | 512 |
 | `D3D_DATA_CACHE` | Optional existing JSONL dataset cache | `data_cache/` |
