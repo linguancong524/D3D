@@ -223,6 +223,7 @@ the baseline. `speedup` is then left empty and the D3D run itself is unchanged.
 single/       Single-request asynchronous draft-and-verify decoding
 serving/      Concurrent decoding, paged KV cache, and AR baselines
 models/d3d/   Qwen3-derived D3D draft backbone and compatibility code
+common/       Shared runtime helpers: devices, checkpoints, datasets, metadata
 scripts/      Quick starts, smoke checks, and benchmark entry points
 benchmarks/   Dataset sources and evaluation protocol
 docs/         Architecture, model details, and validation notes

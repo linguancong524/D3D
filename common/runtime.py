@@ -80,7 +80,7 @@ def runtime_metadata(models=None):
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             versions[package] = None
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parents[1]
     commit = None
     if (root / '.git').exists():
         result = subprocess.run(['git', '-C', str(root), 'rev-parse', 'HEAD'], capture_output=True, text=True)

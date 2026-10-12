@@ -2,7 +2,7 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
-"$PYTHON_BIN" -m compileall -q single serving models
+"$PYTHON_BIN" -m compileall -q single serving models common
 "$PYTHON_BIN" - <<'PY'
 import sys
 

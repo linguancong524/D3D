@@ -19,7 +19,7 @@ from transformers import AutoTokenizer
 from serving.engine import Engine
 from serving.baseline_concurrency import generate as generate_ar
 from single import eval_sync as original
-from d3d_utils import check_hardware, check_paged_capacity, resolve_model_path, runtime_metadata
+from common.runtime import check_hardware, check_paged_capacity, resolve_model_path, runtime_metadata
 
 TARGET='Qwen/Qwen3-8B'
 DRAFT='lingc8/D3D-1.7B-to-8B'

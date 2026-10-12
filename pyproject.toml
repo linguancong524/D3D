@@ -17,11 +17,8 @@ Repository = "https://github.com/linguancong524/D3D"
 Paper = "https://openreview.net/forum?id=owCZMqNsqR"
 Models = "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"
 
-[tool.setuptools]
-py-modules = ["d3d_utils"]
-
 [tool.setuptools.packages.find]
-include = ["single*", "serving*", "models*"]
+include = ["single*", "serving*", "models*", "common*"]
 namespaces = true
 
 [tool.setuptools.package-data]

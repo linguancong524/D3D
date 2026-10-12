@@ -14,7 +14,7 @@ require_command() {
 
 check_hardware() {
   require_command "$PYTHON_BIN"
-  "$PYTHON_BIN" -c 'from d3d_utils import check_hardware; check_hardware()'
+  "$PYTHON_BIN" -c 'from common.runtime import check_hardware; check_hardware()'
 }
 
 check_models() {

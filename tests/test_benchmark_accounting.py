@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from d3d_utils import check_paged_capacity
+from common.runtime import check_paged_capacity
 from single.eval_sync import headline_metrics, summarize_timing_metrics
 
 

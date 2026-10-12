@@ -41,7 +41,7 @@ experiment workspace. Publication uses an isolated clone of
 
 ```bash
 python -m unittest discover -s tests -v
-python -m compileall -q single serving models d3d_utils.py
+python -m compileall -q single serving models common
 for script in scripts/*.sh; do bash -n "$script"; done
 ```
 

@@ -57,13 +57,13 @@ class PublicReleaseTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_local_checkpoint_needs_no_network(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / 'config.json').write_text(json.dumps({'model_type': 'd3d'}))
             self.assertEqual(utils.resolve_model_path(directory), directory)
 
     def test_hub_checkpoint_is_resolved_to_snapshot(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         with tempfile.TemporaryDirectory() as directory:
             (Path(directory) / 'config.json').write_text('{}')
             module = types.ModuleType('huggingface_hub')
@@ -72,12 +72,12 @@ class PublicReleaseTests(unittest.TestCase):
                 self.assertEqual(utils.resolve_model_path('example/draft'), directory)
 
     def test_missing_local_checkpoint_fails_clearly(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         with self.assertRaises(FileNotFoundError):
             utils.resolve_model_path('/missing/d3d-checkpoint')
 
     def test_missing_cuda_fails_before_model_download(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         module = types.ModuleType('torch')
         module.cuda = types.SimpleNamespace(is_available=lambda: False)
         with patch.dict(sys.modules, {'torch': module}):
@@ -85,7 +85,7 @@ class PublicReleaseTests(unittest.TestCase):
                 utils.check_hardware()
 
     def test_same_device_is_rejected(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         module = types.ModuleType('torch')
         module.cuda = types.SimpleNamespace(is_available=lambda: True, device_count=lambda: 2)
         with patch.dict(sys.modules, {'torch': module}):
@@ -93,7 +93,7 @@ class PublicReleaseTests(unittest.TestCase):
                 utils.check_hardware('cuda:0', 'cuda:0')
 
     def test_dataset_jsonl_download_preserves_source_rows(self):
-        utils = importlib.import_module('d3d_utils')
+        utils = importlib.import_module('common.runtime')
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / 'test6.jsonl'
             source.write_text('{"question_content": "solve", "starter_code": "def solve():"}\n')

@@ -3,7 +3,7 @@ import multiprocessing as mp
 import traceback
 import torch
 from serving.backend import Runner, Sequence, SamplingParams
-from d3d_utils import resolve_model_path
+from common.runtime import resolve_model_path
 
 
 def _worker(pipe, path, pages):

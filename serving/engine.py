@@ -9,7 +9,7 @@ from serving.target_process import TargetProcess
 import time
 import torch
 from serving.backend import Runner, Sequence, SamplingParams, MASK_ID
-from d3d_utils import check_hardware, resolve_model_path
+from common.runtime import check_hardware, resolve_model_path
 
 class Engine:
     def __init__(self, target, draft, block_size=16, anchor_num=3, draft_microbatch=4, pages=512, backup="neural", seed=42, fast_miss_anchors=0, draft_pages=None):

@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
-from d3d_utils import check_hardware, load_dataset_jsonl, resolve_model_path, runtime_metadata
+from common.runtime import check_hardware, load_dataset_jsonl, resolve_model_path, runtime_metadata
 LOCAL_CACHE_DIR = Path(os.environ.get("D3D_DATA_CACHE", REPO_ROOT / "data_cache"))
 LOCAL_ANSWER_DIR = Path(os.environ.get("D3D_ANSWER_CACHE", REPO_ROOT / "answer_cache"))
 MASK_ID = 151669
