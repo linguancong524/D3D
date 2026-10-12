@@ -145,7 +145,8 @@ capacity setting for the released 24-layer draft, long prompts, or
 | `D3D_DRAFT_MODEL` | Draft checkpoint path / Hub ID | `lingc8/D3D-1.7B-to-8B` |
 | `D3D_MAX_NEW_TOKENS` | Generation cap | 128 for quick starts; 2048 for benchmarks |
 | `D3D_BLOCK_SIZE` | Single-request draft block size | 16 |
-| `D3D_ANCHOR_NUM` | Anchor candidate count (concurrent scripts default to 1) | 3 single / 1 concurrent |
+| `D3D_ANCHOR_NUM` | Anchor candidate count for single-request runs and concurrency 1 | 3 |
+| `D3D_CONCURRENT_ANCHOR_NUM` | Anchor candidate count for concurrency > 1 | 1 |
 | `D3D_CONCURRENCY` | Concurrent quick-start request count | 4 |
 | `D3D_PAGES` | Concurrent KV pages per device | 512 |
 | `D3D_DATA_CACHE` | Optional existing JSONL dataset cache | `data_cache/` |
@@ -198,9 +199,10 @@ breakdown:
 - single request: `headline` block in `outputs/single/summary.json` for the
   quick start and in `outputs/benchmark/<dataset>.summary.json` for the
   benchmark;
-- concurrent: every cell carries `baseline_tps`, `speedup`, and
-  `accept_length`, and the top-level `summary` list collects them per
-  dataset × concurrency.
+- concurrent: the benchmark runs one process per concurrency, so each
+  concurrency writes its own JSON (`outputs/concurrent/benchmark_c1.json`,
+  `_c4.json`, …); every cell carries `baseline_tps`, `speedup`, `accept_length`
+  and `anchor_num`, and the top-level `summary` list collects them per dataset.
 
 Both sides of `speedup` always share the same timing boundary: single-request
 runs compare decode-only TPS (prefill and the prefill-emitted first target

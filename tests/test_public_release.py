@@ -56,6 +56,36 @@ class PublicReleaseTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_concurrent_benchmark_picks_anchor_by_concurrency(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            capture = root / 'arguments.jsonl'
+            executable = root / 'python-stub'
+            executable.write_text(
+                f'#!{sys.executable}\n'
+                'import json, os, sys\n'
+                'if sys.argv[1:2] != ["-c"]:\n'
+                '    with open(os.environ["D3D_CAPTURE"], "a") as stream:\n'
+                '        stream.write(json.dumps(sys.argv[1:]) + "\\n")\n'
+            )
+            executable.chmod(0o755)
+            environment = dict(os.environ)
+            environment.update(
+                PYTHON_BIN=str(executable), D3D_CAPTURE=str(capture),
+                D3D_DATASETS='math500', D3D_CONCURRENCY='1 4',
+                D3D_CONCURRENT_OUTPUT=str(root / 'outputs' / 'concurrent.json'),
+            )
+            result = subprocess.run(
+                ['bash', str(ROOT / 'scripts' / 'benchmark_concurrent.sh')],
+                cwd=root, env=environment, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            invocations = [json.loads(line) for line in capture.read_text().splitlines()]
+            concurrencies = [args[args.index('--concurrency') + 1] for args in invocations]
+            anchors = [args[args.index('--anchor-num') + 1] for args in invocations]
+            self.assertEqual(concurrencies, ['1', '4'])
+            self.assertEqual(anchors, ['3', '1'])
+
     def test_local_checkpoint_needs_no_network(self):
         utils = importlib.import_module('common.runtime')
         with tempfile.TemporaryDirectory() as directory:

@@ -76,9 +76,13 @@ Override datasets with `D3D_DATASETS="math500 humaneval"`; select a local or
 Hub checkpoint with `D3D_TARGET_MODEL` and `D3D_DRAFT_MODEL`. The scripts use
 block size 16, one denoising step, three backup anchors, greedy decoding, and
 strictly causal draft-prefix attention (matching the serving backend), with
-thinking disabled. The concurrent scripts default to one anchor
-(`D3D_ANCHOR_NUM=1`), since multiple anchor branches do not fit the paged KV
-budget once requests overlap. `D3D_MAX_SAMPLES` changes the sample cap.
+thinking disabled. Concurrency 1 keeps the configured three anchors
+(`D3D_ANCHOR_NUM`), while concurrent cells drop to one anchor
+(`D3D_CONCURRENT_ANCHOR_NUM=1`), since multiple anchor branches do not fit the
+paged KV budget once requests overlap. `D3D_MAX_SAMPLES` changes the sample
+cap. The concurrent benchmark script invokes the runner once per concurrency,
+so each concurrency writes its own result file (`benchmark_c1.json`,
+`benchmark_c4.json`, ...).
 `D3D_MAX_NEW_TOKENS` overrides the default 2048-token limit for smoke runs;
 these shorter runs are not formal protocol results. The concurrent
 script accepts `D3D_CONCURRENCY="1 4 8 16"`.
