@@ -207,9 +207,12 @@ breakdown:
   `accept_length`, and the top-level `summary` list collects them per
   dataset × concurrency.
 
-Single-request `speedup` uses decode-only TPS on both sides (prefill and the
-first target token excluded); concurrent `speedup` uses end-to-end TPS
-(prefill included) on both sides. The two boundaries are not comparable.
+Both sides of `speedup` always share the same timing boundary: single-request
+runs compare decode-only TPS (prefill and the prefill-emitted first target
+token excluded), while concurrent runs compare end-to-end TPS (prefill,
+admission, decode, and drain included). The two boundaries are not comparable.
+Single-request summaries record this in `headline.metric`; concurrent cells
+record it as `timing_boundary`.
 
 Set `D3D_BASELINE=0` (scripts) or `--no-baseline` (Python entry points) to skip
 the baseline. `speedup` is then left empty and the D3D run itself is unchanged.

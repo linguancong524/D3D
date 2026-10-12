@@ -37,9 +37,10 @@ Quick starts and benchmarks first measure the target model alone:
   decoding settings, and concurrency as the D3D run.
 - It decodes autoregressively on the verifier GPU only (`cuda:0` by default);
   the draft GPU stays idle, so the baseline is single-card AR throughput.
-- Single-request runs use the decode-only boundary (prefill and the first
-  target token excluded), matching the D3D decode metric. Concurrent runs use
-  the end-to-end boundary including prefill, matching the D3D `tps`.
+- `speedup` compares the same boundary on both sides: decode-only for
+  single-request runs (prefill and the prefill-emitted first target token
+  excluded from tokens and time) and end-to-end for concurrent runs (prefill,
+  admission, decode and drain included).
 
 Summaries then carry the two headline numbers:
 

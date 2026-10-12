@@ -1709,6 +1709,7 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         summary.get("aggregate_decode_tps", 0.0),
         baseline_timing.get("aggregate_decode_tps", 0.0),
         summary.get("avg_accept_length", 0.0),
+        metric="decode_tps_excluding_prefill",
     )
     if summary_json:
         _write_json(summary_json, compact)

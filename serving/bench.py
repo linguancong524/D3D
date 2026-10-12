@@ -24,6 +24,7 @@ from d3d_utils import check_hardware, check_paged_capacity, resolve_model_path, 
 TARGET='Qwen/Qwen3-8B'
 DRAFT='lingc8/D3D-1.7B-to-8B'
 EOS_IDS=(151643,151645)
+TIMING_BOUNDARY='end_to_end_tps_including_prefill'
 
 
 def acceptance_length(result):
@@ -120,6 +121,7 @@ def main():
                     result=engine.generate(prompts,c,max_new_tokens=a.max_new_tokens,ignore_eos=a.ignore_eos)
                     result.update(dataset=name,concurrency=c,repeat=repeat,requests=len(prompts),
                                   accept_length=acceptance_length(result),
+                                  timing_boundary=TIMING_BOUNDARY,
                                   input_sha256=hashlib.sha256(json.dumps(prompts).encode()).hexdigest())
                     if baseline is not None:
                         result['baseline_tps']=float(baseline['tps'])
@@ -131,7 +133,8 @@ def main():
                     payload['cells'].append(result)
                     payload['summary']=[{key: cell.get(key) for key in
                                          ('dataset','concurrency','repeat','tps','baseline_tps',
-                                          'speedup','accept_length','elapsed_s','max_active')}
+                                          'speedup','accept_length','elapsed_s','max_active',
+                                          'timing_boundary')}
                                         for cell in payload['cells']]
                     out.write_text(json.dumps(payload,indent=2))
                     extra=''
