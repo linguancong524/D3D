@@ -1,9 +1,32 @@
-# Generated outputs and local caches
-D3DV2/results*/
-D3DV2/results*/**
-**/__pycache__/
-*.pyc
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+build/
+dist/
+
+outputs/
+results/
+results*/
+logs/
+data_cache/
+answer_cache/
 *.log
+*.pid
+*.pt
+*.pth
+*.safetensors
+*.bin
+
+.env
+.env.*
+!.env.example
+*.token
+*.secret
+
+# Legacy experiment outputs (D3DV2 / D3D_concurrency)
 *.jsonl
 **/cache/
 **/checkpoints/

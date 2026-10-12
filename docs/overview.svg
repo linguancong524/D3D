@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="320" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">D3D asynchronous drafting and verification</title>
+  <desc id="desc">Target verification on GPU 0 overlaps with diffusion drafting on GPU 1. A coordinator selects candidates using verification feedback. Supports single and concurrent requests.</desc>
+  <rect width="960" height="320" rx="20" fill="#f8fafc"/>
+  <g font-family="Arial, sans-serif" text-anchor="middle">
+    <text x="480" y="38" font-size="22" font-weight="700" fill="#0f172a">Decoupled execution on two GPUs</text>
+    <rect x="45" y="95" width="210" height="140" rx="14" fill="#dbeafe" stroke="#2563eb"/>
+    <text x="150" y="143" font-size="20" font-weight="700" fill="#1e3a8a">Requests</text>
+    <text x="150" y="180" font-size="16" fill="#1e40af">Single or concurrent</text>
+    <rect x="345" y="62" width="260" height="94" rx="14" fill="#dcfce7" stroke="#16a34a"/>
+    <text x="475" y="100" font-size="20" font-weight="700" fill="#14532d">Diffusion drafting</text>
+    <text x="475" y="132" font-size="16" fill="#166534">Draft model · GPU 1</text>
+    <rect x="345" y="181" width="260" height="94" rx="14" fill="#fef3c7" stroke="#d97706"/>
+    <text x="475" y="219" font-size="20" font-weight="700" fill="#78350f">Target verification</text>
+    <text x="475" y="251" font-size="16" fill="#92400e">Target model · GPU 0</text>
+    <rect x="705" y="95" width="210" height="140" rx="14" fill="#ede9fe" stroke="#7c3aed"/>
+    <text x="810" y="143" font-size="20" font-weight="700" fill="#4c1d95">D3D coordinator</text>
+    <text x="810" y="179" font-size="15" fill="#5b21b6">Select, reuse, and emit</text>
+    <text x="480" y="306" font-size="15" fill="#475569">Drafting and verification overlap asynchronously</text>
+  </g>
+  <g fill="none" stroke="#475569" stroke-width="2">
+    <path d="M255 155 H300 V109 H337 M255 175 H300 V228 H337"/>
+    <path d="M605 109 H650 V145 H697 M605 228 H650 V185 H697"/>
+    <path d="M810 95 V52 H475 V62" stroke-dasharray="6 5"/>
+  </g>
+</svg>
