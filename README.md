@@ -179,21 +179,26 @@ LiveCodeBench v6 uses `test6.jsonl` from
 See the [benchmark protocol](benchmarks/README.md) for sources, splits,
 token caps, timing boundaries, and reporting rules.
 
-### What a run reports
+**Validation is not a performance claim.** Local GPU smoke and reference checks
+are documented in [GPU validation](docs/gpu-validation.md). A full, verified
+performance table for all six public checkpoints is not yet available.
 
-Both quick starts and both benchmark scripts first measure the **baseline**:
-the target model alone, autoregressive, on one GPU, with the same prompts,
-token cap, greedy settings, and concurrency as the D3D run. Every run then
-writes a summary whose headline is these two metrics:
+## 📈 What a run reports
+
+Every quick start and every benchmark writes a summary. Both first measure the
+**baseline**: the target model alone, autoregressive, on one GPU, with the same
+prompts, token cap, greedy settings, and concurrency as the D3D run.
+
+The summary headline is these two metrics:
 
 | Metric | Meaning |
 |:---|:---|
 | `speedup` | D3D tokens/s ÷ baseline tokens/s, measured on the same timing boundary for both sides |
 | `accept_length` | Mean tokens committed per verify step (accepted draft tokens plus the target token) |
 
-The summary also carries the raw throughput numbers (`d3d_tps` and
-`baseline_tps`), dataset accuracy where a scorer exists, and the full
-timing/acceptance breakdown:
+It also carries the raw throughput numbers (`d3d_tps` and `baseline_tps`),
+dataset accuracy where a scorer exists, and the full timing/acceptance
+breakdown:
 
 - single request: `headline` block in `outputs/single/summary.json` for the
   quick start and in `outputs/benchmark/<dataset>.summary.json` for the
@@ -202,14 +207,12 @@ timing/acceptance breakdown:
   `accept_length`, and the top-level `summary` list collects them per
   dataset × concurrency.
 
+Single-request `speedup` uses decode-only TPS on both sides (prefill and the
+first target token excluded); concurrent `speedup` uses end-to-end TPS
+(prefill included) on both sides. The two boundaries are not comparable.
+
 Set `D3D_BASELINE=0` (scripts) or `--no-baseline` (Python entry points) to skip
 the baseline. `speedup` is then left empty and the D3D run itself is unchanged.
-
-**Validation is not a performance claim.** Local GPU smoke and reference checks
-are documented in [GPU validation](docs/gpu-validation.md). A full, verified
-performance table for all six public checkpoints is not yet available.
-Single-request decode TPS and concurrent end-to-end TPS have different timing
-boundaries and should not be compared directly.
 
 ## 🗂️ Repository Guide
 
