@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/figure1.png" alt="D3D: drafter training, progressive layer pruning, and asynchronous inference" width="100%">
-</p>
-
 <h1 align="center">D3D</h1>
 
 <h3 align="center">Decoupled Diffusion Drafting for Asynchronous Speculative Decoding</h3>
@@ -43,7 +39,7 @@ transformer backbone**, not the name of the decoding system.
 | Drafting and verification run on separate GPUs. | Block-wise candidate generation with packed outcomes. | Dedicated single-request and paged multi-request backends. |
 
 <p align="center">
-  <img src="docs/overview.svg" alt="D3D drafting and verification overlap on two GPUs" width="960">
+  <img src="docs/figure1.png" alt="D3D method overview: drafter training, progressive layer pruning, and asynchronous inference" width="960">
 </p>
 
 **How it works:** a target-selected anchor starts a parallel diffusion draft;

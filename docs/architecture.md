@@ -6,7 +6,7 @@ the target retains its autoregressive verification role. Sharing a backbone
 does not make standard Qwen3 generation a substitute for D3D drafting.
 
 <p align="center">
-  <img src="overview.svg" alt="D3D overlaps diffusion drafting and target verification on two GPUs" width="960">
+  <img src="figure1.png" alt="D3D method overview: drafter training, progressive layer pruning, and asynchronous inference" width="960">
 </p>
 
 ## Three cooperating components
