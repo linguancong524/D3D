@@ -132,7 +132,7 @@ D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 The 128-page setting was smoke-tested with a different local 24-layer
 checkpoint, short generations, and two H800 GPUs. It is **not** a validated
 capacity setting for the released 24-layer draft, long prompts, or
-2048-token generations. See [GPU validation](docs/gpu-validation.md).
+2048-token generations.
 
 </details>
 

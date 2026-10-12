@@ -54,7 +54,7 @@ Publication checks cover public repository access, complete shard lists,
 weight sizes and hashes, configuration dimensions, and tokenizer loading.
 They do not establish generation quality, target-reference equivalence, or
 performance for all six released checkpoints. Local GPU smoke and reference
-checks have a narrower scope documented in [gpu-validation.md](gpu-validation.md).
+checks have a narrower scope.
 
 To reproduce a result, record the Hub commit SHA in addition to the model ID,
 and use the same dataset samples, token cap, attention backend, and decoding

@@ -202,7 +202,7 @@ def load_rows(dataset: str, max_samples: int | None):
 def extract_pred(text):
     boxed_value = boxed(text)
     if boxed_value is not None:
-        return boxed_value.replace("$", "").replace(",", "").strip()
+        return boxed_value.replace("$", "").strip()
     nums = re.findall(r"-?\d+(?:\.\d+)?", text.replace(",", ""))
     return nums[-1] if nums else None
 
@@ -210,7 +210,9 @@ def extract_pred(text):
 def normalize(x):
     if x is None:
         return None
-    x = x.strip().rstrip(".").replace("\\!", "").replace(" ", "")
+    # Commas are dropped on both sides so that "1,234" and "(3, 2)" compare
+    # like-for-like with the gold answer.
+    x = x.strip().rstrip(".").replace("\\!", "").replace(" ", "").replace(",", "")
     try:
         f = float(x)
         if not math.isfinite(f):

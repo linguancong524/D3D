@@ -60,9 +60,8 @@ availability, H800 execution, and full benchmark results remain release gates.
 
 ## GPU follow-up
 
-See `docs/gpu-validation.md` for the 2026-10-10 H800 follow-up. Local 8B/1.7B
-single-request, concurrent, and reference checks passed after fixing optional
-Liger device handling. A local 32B/24-layer draft pair also passed single-request
-and four-request concurrent smoke checks using 128 KV pages. Public checkpoint
-downloads, the remaining pairs,
-and full benchmark results are still release gates.
+Local 8B/1.7B single-request, concurrent, and reference checks passed after
+fixing optional Liger device handling. A local 32B/24-layer draft pair also
+passed single-request and four-request concurrent smoke checks using 128 KV
+pages. Public checkpoint downloads, the remaining pairs, and full benchmark
+results are still release gates.

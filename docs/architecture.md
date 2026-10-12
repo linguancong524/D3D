@@ -49,5 +49,4 @@ backbone. Upstream source notices remain in the model files and
 [third-party notices](../THIRD_PARTY_NOTICES.md). Published checkpoints are
 drafts paired with specific target models, not standalone target replacements.
 No performance number follows from the diagram or from renaming the code;
-see [validation scope](gpu-validation.md) and the
-[benchmark protocol](../benchmarks/README.md).
+see the [benchmark protocol](../benchmarks/README.md).

@@ -1610,7 +1610,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             verifier_client,
             prepared,
             max_new_tokens=args.max_new_tokens,
-            eos_ids=eos_ids,
+            eos_token_ids=eos_ids,
             temperature=args.temperature,
             target_top_k=args.target_top_k,
             target_top_p=args.target_top_p,
