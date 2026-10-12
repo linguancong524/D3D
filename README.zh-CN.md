@@ -129,10 +129,6 @@ bash scripts/quickstart_single.sh
 D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 ```
 
-128 page 的设置是在另一个本地 24 层 checkpoint、短生成、两张 H800 上做的
-smoke 测试。它**不是**已发布 24 层草稿在长 prompt 或 2048 token 生成下的
-已验证容量设置。
-
 </details>
 
 <details>
