@@ -24,12 +24,11 @@ separate GPUs. Draft generation overlaps target verification, with verification
 feedback selecting reusable candidates for the next decoding step.
 
 **The contribution is the D3D execution architecture:** independent drafting,
-overlapped verification, and feedback-driven candidate reuse. **Qwen3 is the
-transformer backbone**, not the name of the decoding system.
+overlapped verification, and feedback-driven candidate reuse.
 
-| Asynchronous execution | Parallel diffusion drafts | Single & concurrent |
-|:---|:---|:---|
-| Drafting and verification run on separate GPUs. | Block-wise candidate generation with packed outcomes. | Dedicated single-request and paged multi-request backends. |
+| Asynchronous execution | Parallel diffusion drafts |
+|:---|:---|
+| Drafting and verification run on separate GPUs. | Block-wise candidate generation with packed outcomes. |
 
 <p align="center">
   <img src="docs/figure1.png" alt="D3D method overview: drafter training, progressive layer pruning, and asynchronous inference" width="960">
@@ -178,10 +177,6 @@ LiveCodeBench v6 uses `test6.jsonl` from
 `livecodebench/code_generation_lite`; the other datasets use `datasets`.
 See the [benchmark protocol](benchmarks/README.md) for sources, splits,
 token caps, timing boundaries, and reporting rules.
-
-**Validation is not a performance claim.** Local GPU smoke and reference checks
-are documented in [GPU validation](docs/gpu-validation.md). A full, verified
-performance table for all six public checkpoints is not yet available.
 
 ## 📈 What a run reports
 
