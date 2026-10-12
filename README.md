@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
 <h1 align="center">D3D</h1>
 
 <h3 align="center">Decoupled Diffusion Drafting for Asynchronous Speculative Decoding</h3>
