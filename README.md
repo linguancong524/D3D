@@ -150,6 +150,7 @@ capacity setting for the released 24-layer draft, long prompts, or
 | `D3D_CONCURRENCY` | Concurrent quick-start request count | 4 |
 | `D3D_PAGES` | Concurrent KV pages per device | 512 |
 | `D3D_DATA_CACHE` | Optional existing JSONL dataset cache | `data_cache/` |
+| `D3D_BASELINE` | Run the single-GPU target-only AR baseline first (`0` disables) | `1` |
 
 Use `python single/eval_async_packed.py --help` or
 `python -m serving.bench --help` for the full set of options.
@@ -177,6 +178,32 @@ LiveCodeBench v6 uses `test6.jsonl` from
 `livecodebench/code_generation_lite`; the other datasets use `datasets`.
 See the [benchmark protocol](benchmarks/README.md) for sources, splits,
 token caps, timing boundaries, and reporting rules.
+
+### What a run reports
+
+Both quick starts and both benchmark scripts first measure the **baseline**:
+the target model alone, autoregressive, on one GPU, with the same prompts,
+token cap, greedy settings, and concurrency as the D3D run. Every run then
+writes a summary whose headline is these two metrics:
+
+| Metric | Meaning |
+|:---|:---|
+| `speedup` | D3D tokens/s ÷ baseline tokens/s, measured on the same timing boundary for both sides |
+| `accept_length` | Mean tokens committed per verify step (accepted draft tokens plus the target token) |
+
+The summary also carries the raw throughput numbers (`d3d_tps` and
+`baseline_tps`), dataset accuracy where a scorer exists, and the full
+timing/acceptance breakdown:
+
+- single request: `headline` block in `outputs/single/summary.json` for the
+  quick start and in `outputs/benchmark/<dataset>.summary.json` for the
+  benchmark;
+- concurrent: every cell carries `baseline_tps`, `speedup`, and
+  `accept_length`, and the top-level `summary` list collects them per
+  dataset × concurrency.
+
+Set `D3D_BASELINE=0` (scripts) or `--no-baseline` (Python entry points) to skip
+the baseline. `speedup` is then left empty and the D3D run itself is unchanged.
 
 **Validation is not a performance claim.** Local GPU smoke and reference checks
 are documented in [GPU validation](docs/gpu-validation.md). A full, verified

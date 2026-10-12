@@ -1464,6 +1464,12 @@ def _summarize_async(per_prompt: list[dict[str, Any]]) -> dict[str, Any]:
 def _build_async_payload(args, per_prompt, draft_tokens, eos_token_ids, start_time, dataset_source, model_type):
     payload = sync._build_payload(args, per_prompt, draft_tokens, eos_token_ids, start_time, dataset_source, model_type)
     payload["summary"]["async"] = _summarize_async(per_prompt)
+    baseline_rows = getattr(args, "baseline_rows", None)
+    if baseline_rows:
+        payload["baseline"] = {
+            "decode_timing": dict(getattr(args, "baseline_timing", {})),
+            "rows": baseline_rows,
+        }
     return payload
 
 
@@ -1473,6 +1479,55 @@ def _write_async_summary(args, payload: dict[str, Any]) -> dict[str, Any]:
     if args.summary_json:
         sync._write_json(args.summary_json, compact)
     return compact
+
+
+@torch.inference_mode()
+def run_ar_baseline(
+    verifier_client: VerifierProcessClient,
+    inputs: list[Any],
+    *,
+    max_new_tokens: int,
+    eos_token_ids,
+    temperature: float,
+    target_top_k: int,
+    target_top_p: float,
+) -> list[dict[str, Any]]:
+    """Target-only AR decoding on the verifier GPU, one request at a time.
+
+    The prefill emits the first token, so decode tokens and decode time exclude
+    it. That matches the D3D single-request decode metric, and the whole
+    baseline runs on the verifier card alone (the draft GPU stays idle).
+    """
+    eos = {int(token) for token in eos_token_ids}
+    rows: list[dict[str, Any]] = []
+    for ids in inputs:
+        anchor, prefill_s, kv_len = verifier_client.prefill(
+            ids, temperature, target_top_k, target_top_p
+        )
+        generated = [int(anchor[0])]
+        started = time.perf_counter()
+        while len(generated) < int(max_new_tokens) and generated[-1] not in eos:
+            block = torch.tensor([[generated[-1]]], dtype=torch.long, device=ids.device)
+            verifier_client.submit_verify(
+                block, None, int(kv_len), temperature, target_top_k, target_top_p
+            )
+            _, _, correction, _ = verifier_client.receive_verify()
+            kv_len += 1
+            generated.append(int(correction[0]))
+        elapsed = time.perf_counter() - started
+        decode_tokens = len(generated) - 1
+        rows.append(
+            {
+                "input_tokens": int(ids.shape[1]),
+                "output_tokens": len(generated),
+                "decode_tokens": decode_tokens,
+                "prefill_s": float(prefill_s),
+                "decode_elapsed_s": float(elapsed),
+                "tokens_per_s": decode_tokens / elapsed if elapsed > 0 else 0.0,
+                "time_per_output_token": elapsed / decode_tokens if decode_tokens else 0.0,
+            }
+        )
+    return rows
 
 
 def run(args: argparse.Namespace) -> dict[str, Any]:
@@ -1542,6 +1597,27 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if not prepared:
         verifier_client.close()
         raise ValueError('Dataset contains no prompts.')
+    args.baseline_rows = []
+    args.baseline_timing = {}
+    if args.baseline:
+        print(f'BASELINE target-only AR on {args.verifier_device} (draft GPU idle)', flush=True)
+        args.baseline_rows = run_ar_baseline(
+            verifier_client,
+            prepared,
+            max_new_tokens=args.max_new_tokens,
+            eos_token_ids=eos_token_ids,
+            temperature=args.temperature,
+            target_top_k=args.target_top_k,
+            target_top_p=args.target_top_p,
+        )
+        args.baseline_timing = sync.summarize_timing_metrics(
+            args.baseline_rows,
+            elapsed_s=sum(row['decode_elapsed_s'] for row in args.baseline_rows),
+        )
+        print(
+            f'BASELINE aggregate_decode_tps={args.baseline_timing["aggregate_decode_tps"]:.2f}',
+            flush=True,
+        )
     generation_options = dict(
         block_size=args.block_size, denoising_steps=args.denoising_steps,
         threshold=args.confidence_threshold, remasking=args.remasking_strategy,
@@ -1689,6 +1765,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = sync.build_arg_parser()
     parser.description = "Two-GPU all-acceptance-position packed D3D runner."
     parser.set_defaults(verifier_device="cuda:0", draft_device="cuda:1")
+    parser.add_argument(
+        "--baseline",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=(
+            "Run the target-only AR baseline on the verifier GPU before the D3D run "
+            "and report speedup and accept length in the summary."
+        ),
+    )
     parser.add_argument('--warmup-new-tokens', type=int, default=32)
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument("--verifier-cpu-affinity", default=None)

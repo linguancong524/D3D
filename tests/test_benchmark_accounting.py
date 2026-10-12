@@ -4,10 +4,20 @@ import unittest
 from pathlib import Path
 
 from d3d_utils import check_paged_capacity
-from single.eval_sync import summarize_timing_metrics
+from single.eval_sync import headline_metrics, summarize_timing_metrics
 
 
 class BenchmarkAccountingTests(unittest.TestCase):
+    def test_headline_metrics_report_speedup_and_accept_length(self):
+        metrics = headline_metrics(d3d_tps=120.0, baseline_tps=40.0, accept_length=2.5)
+        self.assertEqual(metrics['d3d_tps'], 120.0)
+        self.assertEqual(metrics['baseline_tps'], 40.0)
+        self.assertEqual(metrics['speedup'], 3.0)
+        self.assertEqual(metrics['accept_length'], 2.5)
+        self.assertIsNone(
+            headline_metrics(d3d_tps=10.0, baseline_tps=0.0, accept_length=1.0)['speedup']
+        )
+
     def test_decode_rate_excludes_prefill_first_token(self):
         rows = [{'output_tokens': 5, 'decode_tokens': 4, 'decode_elapsed_s': 2.0,
                  'tokens_per_s': 2.0, 'time_per_output_token': 0.5}]

@@ -29,7 +29,7 @@ def save(path, value):
     temporary.replace(path)
 
 
-def generate(worker, prompts, concurrency, limit, eos, progress=None):
+def generate(worker, prompts, concurrency, limit, eos, progress=None, ignore_eos=False):
     if concurrency < 1 or limit < 1 or not prompts:
         raise ValueError('Nonempty prompts and positive concurrency/token limit required')
     started = time.perf_counter()
@@ -42,10 +42,11 @@ def generate(worker, prompts, concurrency, limit, eos, progress=None):
 
     def emit(seq, token):
         seq.generated.append(token)
-        if token in eos or len(seq.generated) >= limit:
+        hit_eos = (not ignore_eos) and token in eos
+        if hit_eos or len(seq.generated) >= limit:
             outputs.append(dict(index=seq.index, tokens=seq.generated,
                                 latency_s=time.perf_counter() - seq.born,
-                                finish_reason='eos' if token in eos else 'length'))
+                                finish_reason='eos' if hit_eos else 'length'))
             worker.release(seq)
             return True
         return False

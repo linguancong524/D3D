@@ -29,6 +29,32 @@ Dataset files are cached under `D3D_DATA_CACHE` when local JSONL caches are
 provided. Otherwise the standard Hugging Face cache is used; the repository
 does not redistribute benchmark data.
 
+## Baseline and headline metrics
+
+Quick starts and benchmarks first measure the target model alone:
+
+- The baseline uses the same target checkpoint, prompts, token budget, greedy
+  decoding settings, and concurrency as the D3D run.
+- It decodes autoregressively on the verifier GPU only (`cuda:0` by default);
+  the draft GPU stays idle, so the baseline is single-card AR throughput.
+- Single-request runs use the decode-only boundary (prefill and the first
+  target token excluded), matching the D3D decode metric. Concurrent runs use
+  the end-to-end boundary including prefill, matching the D3D `tps`.
+
+Summaries then carry the two headline numbers:
+
+| Field | Meaning |
+|---|---|
+| `baseline_tps` | Target-only AR tokens per second |
+| `speedup` | D3D tokens per second divided by `baseline_tps` |
+| `accept_length` | Mean tokens committed per verify step |
+
+Single-request summaries group them in a `headline` block; concurrent benchmark
+cells add `baseline_tps`, `speedup`, and `accept_length` fields and also
+collect them under the payload `summary`. Set `D3D_BASELINE=0` (scripts) or
+`--no-baseline` (Python entry points) to skip the baseline; `speedup` is then
+left empty and the D3D run itself is unchanged.
+
 ## Metric boundaries
 
 Single-request `aggregate_decode_tokens_per_s` excludes target/draft prefill

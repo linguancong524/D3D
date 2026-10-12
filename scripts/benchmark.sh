@@ -4,6 +4,8 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 DATASETS="${D3D_DATASETS:-gsm8k math500 humaneval mbpp mt-bench aime25 livecodebench-v6}"
 OUTPUT_DIR="${D3D_OUTPUT_DIR:-outputs/benchmark}"
+BASELINE_FLAG=""
+[ "${D3D_BASELINE:-1}" = "0" ] && BASELINE_FLAG="--no-baseline"
 mkdir -p "$OUTPUT_DIR"
 
 echo "Running D3D benchmark with target=$D3D_TARGET_MODEL draft=$D3D_DRAFT_MODEL"
@@ -26,5 +28,6 @@ for dataset in $DATASETS; do
     --anchor-num "${D3D_ANCHOR_NUM:-3}" \
     --packed-accepted-counts all \
     --output-json "${OUTPUT_DIR}/${dataset}.json" \
-    --summary-json "${OUTPUT_DIR}/${dataset}.summary.json"
+    --summary-json "${OUTPUT_DIR}/${dataset}.summary.json" \
+    $BASELINE_FLAG
 done

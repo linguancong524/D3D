@@ -6,6 +6,8 @@ DATASET="${D3D_DATASET:-math500}"
 MAX_SAMPLES="${D3D_MAX_SAMPLES:-1}"
 MAX_NEW_TOKENS="${D3D_MAX_NEW_TOKENS:-128}"
 OUTPUT_DIR="${D3D_OUTPUT_DIR:-outputs/single}"
+BASELINE_FLAG=""
+[ "${D3D_BASELINE:-1}" = "0" ] && BASELINE_FLAG="--no-baseline"
 
 mkdir -p "$OUTPUT_DIR"
 exec "$PYTHON_BIN" single/eval_async_packed.py \
@@ -24,4 +26,5 @@ exec "$PYTHON_BIN" single/eval_async_packed.py \
   --anchor-num "${D3D_ANCHOR_NUM:-3}" \
   --packed-accepted-counts all \
   --output-json "${OUTPUT_DIR}/result.json" \
-  --summary-json "${OUTPUT_DIR}/summary.json"
+  --summary-json "${OUTPUT_DIR}/summary.json" \
+  $BASELINE_FLAG

@@ -17,11 +17,18 @@ os.environ.setdefault('TOKENIZERS_PARALLELISM','false')
 import torch
 from transformers import AutoTokenizer
 from serving.engine import Engine
+from serving.baseline_concurrency import generate as generate_ar
 from single import eval_sync as original
 from d3d_utils import check_hardware, check_paged_capacity, resolve_model_path, runtime_metadata
 
 TARGET='Qwen/Qwen3-8B'
 DRAFT='lingc8/D3D-1.7B-to-8B'
+EOS_IDS=(151643,151645)
+
+
+def acceptance_length(result):
+    steps=[int(n) for output in result['outputs'] for n in output.get('accepts',[])]
+    return sum(steps)/len(steps) if steps else 0.0
 
 def main():
     p=argparse.ArgumentParser()
@@ -40,6 +47,9 @@ def main():
     p.add_argument('--ignore-eos',action='store_true')
     p.add_argument('--output',default=str(HERE/'results/benchmark.json'))
     p.add_argument('--validate',action='store_true')
+    p.add_argument('--baseline',action=argparse.BooleanOptionalAction,default=True,
+                   help='Run the target-only single-GPU AR baseline before each D3D cell '
+                        'and report speedup and accept length.')
     a=p.parse_args()
     if any(value < 1 for value in a.concurrency + [a.max_samples, a.max_new_tokens, a.repeats, a.pages]):
         p.error('Concurrency, samples, token count, repeats, and pages must be positive.')
@@ -96,16 +106,40 @@ def main():
             print('VALIDATION PASSED',flush=True)
         for name,prompts in datasets.items():
             for c in a.concurrency:
+                baseline=None
+                if a.baseline:
+                    print(f'BASELINE dataset={name} C={c} (target only, single GPU)',flush=True)
+                    baseline=generate_ar(engine.target,prompts,c,a.max_new_tokens,set(EOS_IDS),
+                                         ignore_eos=a.ignore_eos)
+                    print(f'BASELINE {name} C={c}: {baseline["tps"]:.2f} tok/s, '
+                          f'{baseline["elapsed_s"]:.2f}s, mean_output_tokens={baseline["mean_output_tokens"]:.1f}',flush=True)
                 print(f'WARMUP dataset={name} C={c}',flush=True)
                 engine.generate(prompts[:c],c,max_new_tokens=32,ignore_eos=a.ignore_eos)
                 for repeat in range(a.repeats):
                     print(f'RUN dataset={name} C={c} repeat={repeat}',flush=True)
                     result=engine.generate(prompts,c,max_new_tokens=a.max_new_tokens,ignore_eos=a.ignore_eos)
                     result.update(dataset=name,concurrency=c,repeat=repeat,requests=len(prompts),
+                                  accept_length=acceptance_length(result),
                                   input_sha256=hashlib.sha256(json.dumps(prompts).encode()).hexdigest())
+                    if baseline is not None:
+                        result['baseline_tps']=float(baseline['tps'])
+                        result['baseline_elapsed_s']=float(baseline['elapsed_s'])
+                        result['baseline_mean_output_tokens']=float(baseline['mean_output_tokens'])
+                        result['baseline_max_active']=int(baseline['max_active'])
+                        result['speedup']=(float(result['tps'])/baseline['tps']
+                                           if baseline['tps']>0 else None)
                     payload['cells'].append(result)
+                    payload['summary']=[{key: cell.get(key) for key in
+                                         ('dataset','concurrency','repeat','tps','baseline_tps',
+                                          'speedup','accept_length','elapsed_s','max_active')}
+                                        for cell in payload['cells']]
                     out.write_text(json.dumps(payload,indent=2))
-                    print(f'RESULT {name} C={c}: {result["tps"]:.2f} tok/s, {result["elapsed_s"]:.2f}s, max_active={result["max_active"]}',flush=True)
+                    extra=''
+                    if result.get('speedup') is not None:
+                        extra=(f', baseline={result["baseline_tps"]:.2f} tok/s, '
+                               f'speedup={result["speedup"]:.2f}x')
+                    print(f'RESULT {name} C={c}: {result["tps"]:.2f} tok/s, {result["elapsed_s"]:.2f}s, '
+                          f'max_active={result["max_active"]}, accept_len={result["accept_length"]:.2f}{extra}',flush=True)
         print('DONE',out,flush=True)
     finally: engine.close()
 

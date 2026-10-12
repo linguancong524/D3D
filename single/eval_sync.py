@@ -502,6 +502,25 @@ def summarize_timing_metrics(per_prompt: list[dict[str, Any]], *, elapsed_s: flo
     }
 
 
+def headline_metrics(
+    d3d_tps: float,
+    baseline_tps: float,
+    accept_length: float,
+    *,
+    metric: str = "decode",
+) -> dict[str, Any]:
+    """Report the two headline numbers: speedup over the single-card AR baseline and accept length."""
+    d3d_tps = float(d3d_tps or 0.0)
+    baseline_tps = float(baseline_tps or 0.0)
+    return {
+        "metric": metric,
+        "d3d_tps": d3d_tps,
+        "baseline_tps": baseline_tps,
+        "speedup": d3d_tps / baseline_tps if baseline_tps > 0 else None,
+        "accept_length": float(accept_length or 0.0),
+    }
+
+
 def _effective_draft_tokens(draft_tokens: int | None, block_size: int) -> int:
     if draft_tokens is not None:
         if draft_tokens <= 0:
@@ -1685,6 +1704,12 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         "summary_path": str(Path(summary_json).resolve()) if summary_json else None,
         "results_path": str(Path(args.output_json).resolve()) if args.output_json else None,
     }
+    baseline_timing = (payload.get("baseline") or {}).get("decode_timing") or {}
+    compact["headline"] = headline_metrics(
+        summary.get("aggregate_decode_tps", 0.0),
+        baseline_timing.get("aggregate_decode_tps", 0.0),
+        summary.get("avg_accept_length", 0.0),
+    )
     if summary_json:
         _write_json(summary_json, compact)
     return compact
