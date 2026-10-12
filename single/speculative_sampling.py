@@ -39,7 +39,7 @@ def verify_speculative_block(
     q = draft_probs.float()
     q = q / q.sum(dim=-1, keepdim=True).clamp_min(1e-12)
 
-    # D3DV2 currently supports batch size one. Keeping the implementation
+    # The D3D pipeline currently supports batch size one. Keeping the implementation
     # tensorized over the vocabulary makes it directly reusable by async.
     if batch != 1:
         raise ValueError("standard verification currently supports batch size 1")

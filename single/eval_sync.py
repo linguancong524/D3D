@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import argparse
-import inspect
 import hashlib
 import json
-import math
 import os
 import re
 import statistics
@@ -36,23 +34,13 @@ STOP_TOKEN_IDS = [151643, 151645]
 @dataclass
 class AcceptanceStep:
     accepted_draft_tokens: int
-    dflash_accept_length: int
+    accept_length: int
     emitted_count: int
     emitted_tokens: list[int]
     draft_tokens: list[int]
     target_tokens: list[int]
     stopped: bool
-    tree_num_nodes: int = 0
-    tree_max_depth: int = 0
-    tree_accepted_depth: int = 0
-    tree_correction_token: int | None = None
     mode: str = "draft"
-
-
-class _TextInputs(dict):
-    @property
-    def input_ids(self):
-        return self["input_ids"]
 
 
 def _safe_tag(path_or_name: str) -> str:
@@ -79,10 +67,6 @@ def _checkpoint_model_type(model_path: str) -> str | None:
         return None
 
 
-def _is_bard_checkpoint(model_path: str) -> bool:
-    return _checkpoint_model_type(model_path) in {"bard_vl", "dstar_vl"}
-
-
 def _is_d3d_checkpoint(model_path: str) -> bool:
     return _checkpoint_model_type(model_path) == "d3d"
 
@@ -101,17 +85,6 @@ def _resolve_dtype(dtype_name: str):
     if dtype_name not in mapping:
         raise ValueError(f"Unsupported dtype {dtype_name!r}")
     return mapping[dtype_name]
-
-
-def _bard_dtype_arg(dtype: Any) -> Any:
-    name = str(dtype).replace("torch.", "")
-    if name == "bfloat16":
-        return "bfloat16"
-    if name == "float16":
-        return "float16"
-    if name == "float32":
-        return "float32"
-    return dtype
 
 
 def _ensure_loss_kwargs_compat() -> None:
@@ -141,29 +114,7 @@ def _from_pretrained(cls: Any, model_path: str, dtype: Any, *, attn_implementati
         return cls.from_pretrained(model_path, **kwargs)
 
 
-def _import_bard_model_class():
-    try:
-        from nemo_automodel.components.models.bard_vl import BardVLForConditionalGeneration
-
-        return BardVLForConditionalGeneration
-    except ImportError:
-        bard_repo = os.environ.get("BARD_REPO_ROOT")
-        if bard_repo and Path(bard_repo).exists() and bard_repo not in sys.path:
-            sys.path.insert(0, bard_repo)
-        from nemo_automodel.components.models.bard_vl import BardVLForConditionalGeneration
-
-    return BardVLForConditionalGeneration
-
-
 def _load_model(model_path: str, dtype: Any, *, attn_implementation: str | None):
-    if _is_bard_checkpoint(model_path):
-        bard_cls = _import_bard_model_class()
-        return bard_cls.from_pretrained(
-            model_path,
-            attn_implementation="sdpa",
-            dtype=_bard_dtype_arg(dtype),
-        )
-
     if _is_d3d_checkpoint(model_path):
         _ensure_loss_kwargs_compat()
         from models.d3d.configuration_d3d import D3DConfig
@@ -479,78 +430,30 @@ def _tokens_to_int_list(tokens: Any) -> list[int]:
     return [int(t) for t in tokens]
 
 
-def count_accepted_prefix(draft_tokens: list[int], target_tokens: list[int]) -> int:
-    accepted = 0
-    for draft_token, target_token in zip(draft_tokens, target_tokens):
-        if draft_token != target_token:
-            break
-        accepted += 1
-    return accepted
-
-
-def build_acceptance_step(
-    *,
-    draft_tokens: list[int],
-    target_tokens: list[int],
-    eos_token_ids: Iterable[int],
-    max_new_remaining: int,
-) -> AcceptanceStep:
-    if max_new_remaining <= 0:
-        raise ValueError("max_new_remaining must be positive")
-    if not draft_tokens:
-        raise ValueError("draft_tokens must not be empty")
-    if len(target_tokens) < len(draft_tokens) + 1:
-        raise ValueError("target_tokens must contain len(draft_tokens)+1 entries")
-    accepted = count_accepted_prefix(draft_tokens, target_tokens)
-    raw_emitted = (draft_tokens[:accepted] + [target_tokens[accepted]])[:max_new_remaining]
-    eos_set = {int(e) for e in eos_token_ids}
-    stopped = False
-    emitted = raw_emitted
-    for i, token in enumerate(raw_emitted):
-        if int(token) in eos_set:
-            emitted = raw_emitted[: i + 1]
-            stopped = True
-            break
-    return AcceptanceStep(
-        accepted_draft_tokens=accepted,
-        dflash_accept_length=accepted + 1,
-        emitted_count=len(emitted),
-        emitted_tokens=[int(t) for t in emitted],
-        draft_tokens=[int(t) for t in draft_tokens],
-        target_tokens=[int(t) for t in target_tokens],
-        stopped=stopped,
-    )
-
-
 def summarize_acceptance(steps: list[AcceptanceStep], draft_tokens: int) -> dict[str, Any]:
     if not steps:
         return {
             "num_verify_steps": 0,
             "avg_accepted_draft_tokens": 0.0,
-            "avg_dflash_accept_length": 0.0,
+            "avg_accept_length": 0.0,
             "avg_emitted_tokens": 0.0,
             "draft_accept_rate": 0.0,
             "reject_at_0_rate": 0.0,
             "all_draft_accepted_rate": 0.0,
-            "tree_num_steps": 0,
             "no_draft_num_steps": 0,
             "avg_no_draft_verify_tokens": 0.0,
-            "avg_tree_num_nodes": 0.0,
-            "avg_tree_max_depth": 0.0,
-            "avg_tree_accepted_depth": 0.0,
-            "dflash_accept_length_histogram": {str(i): 0 for i in range(1, int(draft_tokens) + 2)},
+            "accept_length_histogram": {str(i): 0 for i in range(1, int(draft_tokens) + 2)},
         }
     no_draft_steps = [s for s in steps if s.mode == "no-draft"]
     draft_steps = [s for s in steps if len(s.draft_tokens) > 0]
-    tree_steps = [s for s in steps if int(s.tree_num_nodes) > 0]
     accepted = [s.accepted_draft_tokens for s in steps]
-    dflash_lengths = [s.dflash_accept_length for s in steps]
+    accept_lengths = [s.accept_length for s in steps]
     emitted = [s.emitted_count for s in steps]
     total_draft_tokens = sum(len(s.draft_tokens) for s in steps)
     return {
         "num_verify_steps": len(steps),
         "avg_accepted_draft_tokens": statistics.fmean(accepted),
-        "avg_dflash_accept_length": statistics.fmean(dflash_lengths),
+        "avg_accept_length": statistics.fmean(accept_lengths),
         "avg_emitted_tokens": statistics.fmean(emitted),
         "draft_accept_rate": sum(accepted) / total_draft_tokens if total_draft_tokens else 0.0,
         "reject_at_0_rate": (
@@ -563,28 +466,14 @@ def summarize_acceptance(steps: list[AcceptanceStep], draft_tokens: int) -> dict
             if draft_steps
             else 0.0
         ),
-        "tree_num_steps": len(tree_steps),
         "no_draft_num_steps": len(no_draft_steps),
         "avg_no_draft_verify_tokens": (
             statistics.fmean(s.emitted_count for s in no_draft_steps) if no_draft_steps else 0.0
         ),
-        "avg_tree_num_nodes": statistics.fmean(s.tree_num_nodes for s in tree_steps) if tree_steps else 0.0,
-        "avg_tree_max_depth": statistics.fmean(s.tree_max_depth for s in tree_steps) if tree_steps else 0.0,
-        "avg_tree_accepted_depth": (
-            statistics.fmean(s.tree_accepted_depth for s in tree_steps) if tree_steps else 0.0
-        ),
-        "dflash_accept_length_histogram": {
-            str(i): dflash_lengths.count(i) for i in range(1, int(draft_tokens) + 2)
+        "accept_length_histogram": {
+            str(i): accept_lengths.count(i) for i in range(1, int(draft_tokens) + 2)
         },
     }
-
-
-def add_decode_timing(result: dict[str, Any], decode_elapsed_s: float) -> dict[str, Any]:
-    output_tokens = int(result.get("output_tokens", 0))
-    result["decode_elapsed_s"] = float(decode_elapsed_s)
-    result["tokens_per_s"] = output_tokens / decode_elapsed_s if decode_elapsed_s > 0 else 0.0
-    result["time_per_output_token"] = decode_elapsed_s / output_tokens if output_tokens > 0 else 0.0
-    return result
 
 
 def summarize_timing_metrics(per_prompt: list[dict[str, Any]], *, elapsed_s: float) -> dict[str, float]:
@@ -613,112 +502,6 @@ def summarize_timing_metrics(per_prompt: list[dict[str, Any]], *, elapsed_s: flo
     }
 
 
-def _extract_new_tokens(generated: Any, prefix_ids, num_tokens: int, *, response_only: bool) -> list[int]:
-    if hasattr(generated, "sequences"):
-        generated = generated.sequences
-    if isinstance(generated, tuple):
-        generated = generated[0]
-    if generated.ndim == 1:
-        generated = generated.unsqueeze(0)
-    seq = generated[0]
-    prefix = prefix_ids[0]
-    prefix_len = int(prefix.shape[0])
-    if not response_only and int(seq.shape[0]) >= prefix_len and bool(
-        (seq[:prefix_len].to(prefix.device) == prefix).all()
-    ):
-        new_tokens = seq[prefix_len : prefix_len + num_tokens]
-    else:
-        new_tokens = seq[:num_tokens]
-    return [int(x) for x in new_tokens.detach().cpu().tolist()]
-
-
-def _generate_bard_tokens(
-    draft: Any,
-    prefix_ids,
-    *,
-    num_tokens: int,
-    eos_token_ids: list[int],
-    pad_token_id: int | None,
-    temperature: float,
-    bard_block_size: int,
-    denoising_steps: int,
-    remasking_strategy: str,
-    confidence_threshold: float,
-    mask_token_id: int | None,
-) -> list[int]:
-    try:
-        params = inspect.signature(draft.generate).parameters
-    except (TypeError, ValueError):
-        params = {}
-
-    if "denoising_steps" in params:
-        text_inputs = _TextInputs(input_ids=prefix_ids, attention_mask=torch.ones_like(prefix_ids))
-        bard_kwargs: dict[str, Any] = {
-            "max_new_tokens": int(num_tokens),
-            "block_size": int(bard_block_size),
-            "denoising_steps": int(denoising_steps),
-            "temperature": float(temperature),
-            "top_k": 0,
-            "top_p": 1.0,
-            "remasking_strategy": remasking_strategy,
-            "confidence_threshold": float(confidence_threshold),
-            "eos_token_id": int(eos_token_ids[0]),
-        }
-        if mask_token_id is not None:
-            bard_kwargs["mask_token_id"] = int(mask_token_id)
-        generated = draft.generate(text_inputs, **bard_kwargs)
-        response_only = True
-    else:
-        common_kwargs: dict[str, Any] = {
-            "input_ids": prefix_ids,
-            "max_new_tokens": int(num_tokens),
-            "do_sample": bool(temperature > 1e-5),
-            "eos_token_id": eos_token_ids,
-        }
-        if pad_token_id is not None:
-            common_kwargs["pad_token_id"] = pad_token_id
-        if temperature > 1e-5:
-            common_kwargs["temperature"] = float(temperature)
-        generated = draft.generate(**common_kwargs)
-        response_only = False
-
-    return _extract_new_tokens(generated, prefix_ids, int(num_tokens), response_only=response_only)
-
-
-def _generate_bard_tokens_direct(
-    draft: Any,
-    prefix_ids,
-    *,
-    num_tokens: int,
-    bard_block_size: int,
-    mask_token_id: int | None,
-) -> list[int]:
-    from dflash.ddtree_builder import bard_block_topk
-
-    top_tokens, _ = bard_block_topk(
-        draft,
-        prefix_ids,
-        num_tokens=int(num_tokens),
-        bard_block_size=int(bard_block_size),
-        tree_topk=1,
-        mask_token_id=mask_token_id,
-    )
-    return [int(row[0]) for row in top_tokens if row]
-
-
-def _target_tokens_for_draft(target: Any, verify_ids, prefix_len: int, draft_len: int, temperature: float) -> list[int]:
-    output = target(input_ids=verify_ids, use_cache=False)
-    logits = output.logits[:, prefix_len - 1 : prefix_len + draft_len, :]
-    tokens = _sample_tokens(logits, temperature)[0]
-    return [int(x) for x in tokens.detach().cpu().tolist()]
-
-
-def _target_next_token(target: Any, prefix_ids, temperature: float) -> int:
-    output = target(input_ids=prefix_ids, use_cache=False)
-    token = _sample_tokens(output.logits[:, -1:, :], temperature)[0, 0]
-    return int(token.detach().cpu().item())
-
-
 def _effective_draft_tokens(draft_tokens: int | None, block_size: int) -> int:
     if draft_tokens is not None:
         if draft_tokens <= 0:
@@ -727,175 +510,6 @@ def _effective_draft_tokens(draft_tokens: int | None, block_size: int) -> int:
     if block_size <= 1:
         raise ValueError("--block-size must be > 1 when --draft-tokens is omitted")
     return int(block_size) - 1
-
-
-@torch.inference_mode()
-def run_bard_prompt(
-    *,
-    target: Any,
-    draft: Any,
-    tokenizer: Any,
-    prompt: dict[str, Any],
-    device: str,
-    draft_device: str | None = None,
-    max_new_tokens: int,
-    draft_tokens: int,
-    eos_token_ids: list[int],
-    temperature: float,
-    block_size: int,
-    denoising_steps: int,
-    remasking_strategy: str,
-    confidence_threshold: float,
-    mask_token_id: int | None,
-    target_first_token: bool,
-    tree_mode: str,
-    tree_budget: int,
-    tree_topk: int,
-    tree_branch_start_depth: int,
-    draft_backend: str,
-) -> dict[str, Any]:
-    draft_device = draft_device or device
-    text = _apply_chat_template(tokenizer, prompt["messages"], prompt.get("enable_thinking", False))
-    prefix_ids = tokenizer(text, return_tensors="pt", add_special_tokens=False).input_ids.to(device)
-    input_len = int(prefix_ids.shape[1])
-    pad_token_id = getattr(tokenizer, "pad_token_id", None)
-    generated: list[int] = []
-    steps: list[AcceptanceStep] = []
-    decode_start = _synced_time()
-
-    if tree_mode != "no-draft" and target_first_token and max_new_tokens > 0:
-        first_token = _target_next_token(target, prefix_ids, temperature)
-        generated.append(first_token)
-        first_tensor = torch.tensor([[first_token]], dtype=prefix_ids.dtype, device=prefix_ids.device)
-        prefix_ids = torch.cat([prefix_ids, first_tensor], dim=1)
-        if first_token in set(eos_token_ids):
-            result = {
-                "input_tokens": input_len,
-                "output_tokens": len(generated),
-                "text": tokenizer.decode(generated, skip_special_tokens=False),
-                "summary": summarize_acceptance(steps, int(draft_tokens)),
-                "steps": [],
-                "target_first_token": first_token,
-            }
-            return add_decode_timing(result, _synced_time() - decode_start)
-
-    while len(generated) < int(max_new_tokens):
-        remaining = int(max_new_tokens) - len(generated)
-        this_draft_tokens = min(int(draft_tokens), remaining)
-        if tree_mode == "none":
-            if draft_backend == "direct":
-                if int(denoising_steps) != 1:
-                    raise ValueError("--draft-backend direct supports --denoising-steps 1 only")
-                draft_block = _generate_bard_tokens_direct(
-                    draft,
-                    prefix_ids.to(draft_device),
-                    num_tokens=this_draft_tokens,
-                    bard_block_size=block_size,
-                    mask_token_id=mask_token_id,
-                )
-            else:
-                draft_block = _generate_bard_tokens(
-                    draft,
-                    prefix_ids.to(draft_device),
-                    num_tokens=this_draft_tokens,
-                    eos_token_ids=eos_token_ids,
-                    pad_token_id=pad_token_id,
-                    temperature=temperature,
-                    bard_block_size=block_size,
-                    denoising_steps=denoising_steps,
-                    remasking_strategy=remasking_strategy,
-                    confidence_threshold=confidence_threshold,
-                    mask_token_id=mask_token_id,
-                )
-            if not draft_block:
-                break
-            draft_tensor = torch.tensor([draft_block], dtype=prefix_ids.dtype, device=prefix_ids.device)
-            verify_ids = torch.cat([prefix_ids, draft_tensor], dim=1)
-            target_tokens = _target_tokens_for_draft(
-                target,
-                verify_ids,
-                prefix_len=int(prefix_ids.shape[1]),
-                draft_len=len(draft_block),
-                temperature=temperature,
-            )
-            step = build_acceptance_step(
-                draft_tokens=draft_block,
-                target_tokens=target_tokens,
-                eos_token_ids=eos_token_ids,
-                max_new_remaining=remaining,
-            )
-        elif tree_mode == "no-draft":
-            next_token = _target_next_token(target, prefix_ids, temperature)
-            step = AcceptanceStep(
-                accepted_draft_tokens=0,
-                dflash_accept_length=1,
-                emitted_count=1,
-                emitted_tokens=[next_token],
-                draft_tokens=[],
-                target_tokens=[next_token],
-                stopped=next_token in set(eos_token_ids),
-                mode="no-draft",
-            )
-        elif tree_mode == "ddtree":
-            if int(denoising_steps) != 1:
-                raise ValueError("--tree-mode ddtree supports --denoising-steps 1 only")
-            from dflash.ddtree_builder import build_bard_ddtree
-            from dflash.ddtree_verify import verify_ddtree
-
-            tree = build_bard_ddtree(
-                draft,
-                prefix_ids.to(draft_device),
-                num_tokens=this_draft_tokens,
-                bard_block_size=block_size,
-                tree_topk=tree_topk,
-                tree_budget=tree_budget,
-                tree_branch_start_depth=tree_branch_start_depth,
-                mask_token_id=mask_token_id,
-            )
-            if not tree.nodes:
-                break
-            verify_result = verify_ddtree(
-                target,
-                prefix_ids,
-                tree,
-                temperature=temperature,
-                eos_token_ids=eos_token_ids,
-                max_new_remaining=remaining,
-            )
-            step = AcceptanceStep(
-                accepted_draft_tokens=len(verify_result.accepted_tokens),
-                dflash_accept_length=len(verify_result.accepted_tokens) + 1,
-                emitted_count=len(verify_result.emitted_tokens),
-                emitted_tokens=verify_result.emitted_tokens,
-                draft_tokens=[int(node.token_id) for node in tree.nodes],
-                target_tokens=verify_result.posterior_tokens,
-                stopped=verify_result.stopped,
-                tree_num_nodes=len(tree.nodes),
-                tree_max_depth=tree.max_depth(),
-                tree_accepted_depth=len(verify_result.accepted_tokens),
-                tree_correction_token=int(verify_result.correction_token),
-            )
-        else:
-            raise ValueError(f"Unsupported tree_mode: {tree_mode}")
-
-        steps.append(step)
-        generated.extend(step.emitted_tokens)
-        prefix_ids = torch.cat(
-            [prefix_ids, torch.tensor([step.emitted_tokens], dtype=prefix_ids.dtype, device=prefix_ids.device)],
-            dim=1,
-        )
-        if step.stopped:
-            break
-
-    result = {
-        "input_tokens": input_len,
-        "output_tokens": len(generated),
-        "text": tokenizer.decode(generated, skip_special_tokens=False),
-        "summary": summarize_acceptance(steps, int(draft_tokens)),
-        "steps": [asdict(s) for s in steps],
-        "target_first_token": generated[0] if target_first_token and generated else None,
-    }
-    return add_decode_timing(result, _synced_time() - decode_start)
 
 
 def _get_num_transfer_tokens(num_masks: int, steps: int):
@@ -1106,8 +720,6 @@ def d3d_draft_block_fused_commit(
             _crop_cache(draft_kv, prefix_len)
         if return_metrics or int(return_topk) > 0:
             metrics = {
-                "normalized_entropy": None,
-                "confidence": None,
                 "top_tokens": None,
                 "top_logprobs": None,
             }
@@ -1118,8 +730,6 @@ def d3d_draft_block_fused_commit(
 
     schedule = _get_num_transfer_tokens(num_masks, denoising_steps)
     pending_written = False
-    final_normalized_entropy = None
-    final_confidence = None
     proposal_probs = None
     proposal_ids = None
     proposal_sparse_probs = None
@@ -1193,9 +803,6 @@ def d3d_draft_block_fused_commit(
                 ).squeeze(-1)
             else:
                 x0, x0_p = _sample_with_prob(logits, temperature=temperature, top_k=top_k, top_p=top_p)
-            entropy = -(probs * log_probs).sum(dim=-1)
-            final_normalized_entropy = entropy / math.log(float(logits.shape[-1]))
-            final_confidence = probs.max(dim=-1).values
         elif _can_skip_transfer_probs(step, schedule, mask_index, remasking, temperature):
             x0, x0_p = _argmax_with_dummy_probs(logits)
         elif return_sparse_proposal and temperature > 1e-5:
@@ -1225,13 +832,9 @@ def d3d_draft_block_fused_commit(
             proposal_sparse_probs[:, selected_idx, :] = step_sparse_probs[:, selected_idx, :]
 
     metrics = {
-            "normalized_entropy": (
-                final_normalized_entropy.detach() if final_normalized_entropy is not None else None
-            ),
-            "confidence": final_confidence.detach() if final_confidence is not None else None,
-            "top_tokens": None,
-            "top_logprobs": None,
-        }
+        "top_tokens": None,
+        "top_logprobs": None,
+    }
     if int(return_topk) > 0 and final_logits is not None:
         log_probs = torch.log_softmax(final_logits.float(), dim=-1)
         k = min(int(return_topk), int(log_probs.shape[-1]))
@@ -1419,7 +1022,7 @@ def run_d3d_generate(
                     "generated_len_before": prefix_len_before - num_input_tokens,
                     "block_size": int(cur_block_size),
                     "accepted_draft_tokens": int(accepted_draft),
-                    "dflash_accept_length": int(commit_len),
+                    "accept_length": int(commit_len),
                     "prefix_len_after": int(start),
                     "generated_len_after": int(start) - num_input_tokens,
                     "draft_wall_s": float(draft_wall_s),
@@ -1466,9 +1069,6 @@ def run_d3d_generate(
         mean_verify_time_per_step=verify_time / max(len(acceptance_lengths), 1),
         decode_elapsed_s=total_time,
     )
-
-
-
 
 
 @torch.inference_mode()
@@ -1732,7 +1332,7 @@ def run_d3d_generate_cached(
                     "generated_len_before": prefix_len_before - num_input_tokens,
                     "block_size": int(cur_block_size),
                     "accepted_draft_tokens": int(accepted_tail),
-                    "dflash_accept_length": int(commit_len),
+                    "accept_length": int(commit_len),
                     "prefix_len_after": int(kv_len),
                     "generated_len_after": int(kv_len) - num_input_tokens,
                     "draft_wall_s": float(draft_wall_s),
@@ -1789,28 +1389,6 @@ def run_d3d_generate_cached(
         mean_verify_time_per_step=verify_time / max(len(acceptance_lengths), 1),
         mean_verify_gpu_time_per_step=verify_gpu_time / max(len(acceptance_lengths), 1),
         decode_elapsed_s=decoding_time,
-    )
-
-
-@torch.inference_mode()
-def ar_generate(verifier, input_ids, max_new_tokens: int, stop_token_ids=None, temperature: float = 0.0):
-    device = next(verifier.parameters()).device
-    output_ids = input_ids.to(device).clone()
-    _sync(device)
-    start_time = time.perf_counter()
-    for _ in range(max_new_tokens):
-        logits = verifier(output_ids, use_cache=False).logits[:, -1:, :]
-        next_token = _sample_tokens(logits, temperature=temperature)
-        output_ids = torch.cat([output_ids, next_token], dim=1)
-        if _contains_stop(next_token, stop_token_ids):
-            break
-    _sync(device)
-    total_time = time.perf_counter() - start_time
-    return SimpleNamespace(
-        output_ids=output_ids,
-        num_input_tokens=input_ids.shape[1],
-        num_output_tokens=output_ids.shape[1] - input_ids.shape[1],
-        time_per_output_token=total_time / max(output_ids.shape[1] - input_ids.shape[1], 1),
     )
 
 
@@ -1885,7 +1463,7 @@ DATASETS = {
             r.get("prompt")
             or r["problem"] + "\nPlease reason step by step, and put your final answer within \\boxed{}."
         ),
-        # The local dflash prompt cache intentionally contains no answer file.
+        # Some local prompt caches intentionally contain no answer file.
         # Keep generation/throughput evaluation available and score accuracy only
         # when a caller supplies an answer-enriched row.
         "gold": lambda r: (
@@ -2066,9 +1644,9 @@ def _write_json(path: str | None, payload: dict[str, Any]) -> None:
 
 def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | None) -> dict[str, Any]:
     prompts = payload["prompts"]
-    flat = [int(step["dflash_accept_length"]) for prompt in prompts for step in prompt.get("steps", [])]
+    flat = [int(step["accept_length"]) for prompt in prompts for step in prompt.get("steps", [])]
     per_sample = [
-        float(prompt.get("summary", {}).get("avg_dflash_accept_length", 0.0))
+        float(prompt.get("summary", {}).get("avg_accept_length", 0.0))
         for prompt in prompts
     ]
     summary = payload["summary"]
@@ -2077,7 +1655,6 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         "dataset_source": payload.get("dataset_source"),
         "drafter": args.drafter,
         "drafter_tag": args.drafter_tag,
-        "draft_backend": args.draft_backend,
         "verifier": args.verifier,
         "num_samples": len(prompts),
         "block_size": args.block_size,
@@ -2089,16 +1666,6 @@ def _summary_from_payload(args, payload: dict[str, Any], summary_json: str | Non
         "temperature": args.temperature,
         "max_new_tokens": args.max_new_tokens,
         "use_kvcache": bool(args.use_kvcache),
-        "tree": {
-            "mode": args.tree_mode,
-            "budget": int(args.tree_budget) if args.tree_mode != "none" else 0,
-            "topk": int(args.tree_topk) if args.tree_mode != "none" else 0,
-            "branch_start_depth": int(args.tree_branch_start_depth) if args.tree_mode != "none" else 0,
-            "num_steps": int(summary.get("tree_num_steps", 0)),
-            "avg_num_nodes": float(summary.get("avg_tree_num_nodes", 0.0)),
-            "avg_max_depth": float(summary.get("avg_tree_max_depth", 0.0)),
-            "avg_accepted_depth": float(summary.get("avg_tree_accepted_depth", 0.0)),
-        },
         "acceptance": {
             **_compact_acceptance(per_sample, flat, args.block_size),
             "mean_accepted_draft_tokens_per_verify": float(summary.get("avg_accepted_draft_tokens", 0.0)),
@@ -2160,7 +1727,7 @@ def _d3d_steps(
         step = asdict(
             AcceptanceStep(
                 accepted_draft_tokens=accepted,
-                dflash_accept_length=int(length),
+                accept_length=int(length),
                 emitted_count=len(emitted_tokens) if emitted_token_blocks is not None else int(length),
                 emitted_tokens=emitted_tokens,
                 draft_tokens=draft_tokens,
@@ -2192,7 +1759,7 @@ def _d3d_steps(
 def _summary_step(step: dict[str, Any]) -> AcceptanceStep:
     return AcceptanceStep(
         accepted_draft_tokens=int(step["accepted_draft_tokens"]),
-        dflash_accept_length=int(step["dflash_accept_length"]),
+        accept_length=int(step["accept_length"]),
         emitted_count=int(step["emitted_count"]),
         emitted_tokens=list(step.get("emitted_tokens", [])),
         draft_tokens=list(step.get("draft_tokens", [])),
@@ -2214,9 +1781,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     args.verifier_tag = _safe_tag(args.verifier)
     args.verifier, args.drafter, args.tokenizer = target_path, draft_path, tokenizer_path
     model_type = args.model_type or _checkpoint_model_type(args.drafter)
-    if args.tree_mode == "ddtree" and model_type not in {"bard_vl", "dstar_vl"}:
-        raise ValueError("--tree-mode ddtree currently requires a Bard/Bard-VL drafter")
-    if args.use_kvcache and (model_type not in {"d3d", "qwen3"} or args.tree_mode != "none"):
+    if args.use_kvcache and model_type not in {"d3d", "qwen3"}:
         raise ValueError("--use-kvcache is currently supported only for D3D/Qwen3 single-chain paths")
 
     dtype = _resolve_dtype(args.dtype)
@@ -2232,12 +1797,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     verifier_device = args.verifier_device or "cuda:0"
     draft_device = args.draft_device or verifier_device
     target = _load_model(args.verifier, dtype, attn_implementation=target_attn).to(verifier_device).eval()
-    draft = None
-    if args.tree_mode != "no-draft":
-        draft = _load_model(args.drafter, dtype, attn_implementation=draft_attn).to(draft_device).eval()
+    draft = _load_model(args.drafter, dtype, attn_implementation=draft_attn).to(draft_device).eval()
     _disable_default_cache(target)
-    if draft is not None:
-        _disable_default_cache(draft)
+    _disable_default_cache(draft)
 
     load_limit = None if args.sample_index is not None else args.max_samples
     rows, cfg, dataset_source = load_rows(args.dataset, load_limit)
@@ -2262,31 +1824,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         gold = _gold_for_row(cfg, row)
         prompt = _build_prompt(question, args.enable_thinking)
 
-        if model_type in {"bard_vl", "dstar_vl"} or args.tree_mode == "no-draft":
-            result = run_bard_prompt(
-                target=target,
-                draft=draft,
-                tokenizer=tokenizer,
-                prompt=prompt,
-                device=verifier_device,
-                draft_device=draft_device,
-                max_new_tokens=args.max_new_tokens,
-                draft_tokens=draft_tokens,
-                eos_token_ids=eos_token_ids,
-                temperature=args.temperature,
-                block_size=args.block_size,
-                denoising_steps=args.denoising_steps,
-                remasking_strategy=args.remasking_strategy,
-                confidence_threshold=args.confidence_threshold,
-                mask_token_id=args.mask_token_id,
-                target_first_token=not args.no_target_first_token,
-                tree_mode=args.tree_mode,
-                tree_budget=args.tree_budget,
-                tree_topk=args.tree_topk,
-                tree_branch_start_depth=args.tree_branch_start_depth,
-                draft_backend=args.draft_backend,
-            )
-        elif model_type == "qwen3":
+        if model_type == "qwen3":
             text = _apply_chat_template(tokenizer, prompt["messages"], args.enable_thinking)
             ids = tokenizer.encode(text, return_tensors="pt").to(verifier_device)
             st = run_causal_generate(
@@ -2485,15 +2023,12 @@ def _build_payload(
             **summarize_timing_metrics(per_prompt, elapsed_s=elapsed_s),
             "target_model": args.verifier,
             "draft_model": args.drafter,
-            "draft_backend": args.draft_backend,
             "draft_tokens": draft_tokens,
-            "bard_block_size": args.block_size,
             "block_size": args.block_size,
             "denoising_steps": args.denoising_steps,
             "remasking_strategy": args.remasking_strategy,
             "confidence_threshold": args.confidence_threshold,
             "attention_mask_mode": args.attention_mask_mode,
-            "target_first_token": not args.no_target_first_token,
             "max_new_tokens": args.max_new_tokens,
             "eos_token_ids": eos_token_ids,
             "temperature": args.temperature,
@@ -2503,17 +2038,13 @@ def _build_payload(
             "target_top_p": args.target_top_p,
             "use_kvcache": bool(args.use_kvcache),
             "collect_stage_timings": bool(args.collect_stage_timings),
-            "tree_mode": args.tree_mode,
-            "tree_budget": args.tree_budget if args.tree_mode != "none" else 0,
-            "tree_topk": args.tree_topk if args.tree_mode != "none" else 0,
-            "tree_branch_start_depth": args.tree_branch_start_depth if args.tree_mode != "none" else 0,
         }
     )
     return {"summary": summary, "dataset_source": dataset_source, "prompts": per_prompt,
             "runtime": getattr(args, 'runtime', {}), "config": vars(args)}
 
 
-def build_arg_parser(*, include_tree_args: bool = True) -> argparse.ArgumentParser:
+def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="D3D synchronous draft verification and diagnostics.")
     parser.add_argument("--drafter", required=True)
     parser.add_argument("--verifier", required=True)
@@ -2538,28 +2069,13 @@ def build_arg_parser(*, include_tree_args: bool = True) -> argparse.ArgumentPars
     parser.add_argument("--output-json", default=None)
     parser.add_argument("--summary-json", default=None)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--draft-backend", choices=["generate", "direct"], default="direct")
     parser.add_argument("--use-kvcache", action="store_true")
-    parser.add_argument("--no-target-first-token", action="store_true")
     parser.add_argument("--block-size", type=int, default=32)
     parser.add_argument("--denoising-steps", type=int, default=1)
     parser.add_argument("--remasking-strategy", default="low_confidence")
     parser.add_argument("--confidence-threshold", type=float, default=0.9)
     parser.add_argument("--attention-mask-mode", choices=["block_causal", "causal"], default="block_causal")
-    parser.add_argument("--mask-token-id", type=int, default=None)
     parser.add_argument("--collect-stage-timings", action="store_true")
-    if include_tree_args:
-        parser.add_argument("--tree-mode", choices=["none", "ddtree", "no-draft"], default="none")
-        parser.add_argument("--tree-budget", type=int, default=128)
-        parser.add_argument("--tree-topk", type=int, default=8)
-        parser.add_argument("--tree-branch-start-depth", type=int, default=0)
-    else:
-        parser.set_defaults(
-            tree_mode="none",
-            tree_budget=0,
-            tree_topk=0,
-            tree_branch_start_depth=0,
-        )
     parser.add_argument("--target-attn-implementation", default="flash_attention_2")
     parser.add_argument("--draft-attn-implementation", default="flash_attention_2")
     return parser

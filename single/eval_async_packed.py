@@ -10,7 +10,6 @@ import time
 import traceback
 from collections import Counter
 from dataclasses import asdict
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -23,7 +22,6 @@ if __package__:
 else:
     import eval_sync as sync
 
-ASYNC_PREFIX_MODES = {"none", "block_gate", "prefix_gate", "hybrid"}
 def _device(name: str | torch.device) -> torch.device:
     return torch.device(name)
 
@@ -657,52 +655,6 @@ def d3d_draft_all_outcomes_packed(
     return candidate_map, candidate_top_tokens_map, candidate_probs_map
 
 
-def _entropy_safe_prefix_len(candidate, metrics: dict[str, Any] | None, threshold: float) -> int:
-    candidate_len = int(candidate.shape[1])
-    if candidate_len <= 1:
-        return candidate_len
-    if not metrics or metrics.get("normalized_entropy") is None:
-        return candidate_len
-
-    entropy = metrics["normalized_entropy"][0]
-    safe_len = 1  # position 0 is replaced by verifier's anchor, so do not gate on draft entropy there.
-    for pos in range(1, candidate_len):
-        if float(entropy[pos].item()) <= float(threshold):
-            safe_len += 1
-        else:
-            break
-    return min(safe_len, candidate_len)
-
-
-def _select_async_prefix(
-    candidate,
-    metrics: dict[str, Any] | None,
-    *,
-    mode: str,
-    entropy_threshold: float,
-    min_prefix_len: int,
-) -> tuple[Any | None, int, int, str]:
-    candidate_len = int(candidate.shape[1])
-    if mode == "none":
-        return candidate.clone(), candidate_len, candidate_len, "full"
-
-    safe_len = _entropy_safe_prefix_len(candidate, metrics, entropy_threshold)
-    if mode == "block_gate":
-        reuse_len = candidate_len if safe_len >= candidate_len else 0
-    elif mode == "prefix_gate":
-        reuse_len = max(1, safe_len)
-    elif mode == "hybrid":
-        reuse_len = safe_len if safe_len >= int(min_prefix_len) else 0
-    else:
-        raise ValueError(f"unsupported async_prefix_mode={mode!r}")
-
-    if reuse_len <= 0:
-        return None, safe_len, 0, "gated"
-    if reuse_len < candidate_len:
-        return candidate[:, :reuse_len].clone(), safe_len, reuse_len, "truncated"
-    return candidate.clone(), safe_len, candidate_len, "full"
-
-
 def _histogram(values: list[int]) -> dict[str, int]:
     return {str(k): int(v) for k, v in sorted(Counter(int(x) for x in values).items())}
 
@@ -822,7 +774,7 @@ def _d3d_steps_dynamic(
             asdict(
                 sync.AcceptanceStep(
                     accepted_draft_tokens=accepted,
-                    dflash_accept_length=int(length),
+                    accept_length=int(length),
                     emitted_count=len(emitted_tokens) if emitted_token_blocks is not None else int(length),
                     emitted_tokens=emitted_tokens,
                     draft_tokens=draft_tokens,
@@ -856,9 +808,6 @@ def run_d3d_generate_async(
     draft_device: str = "cuda:1",
     async_blocks: int = 1,
     attention_mask_mode: str = "block_causal",
-    async_prefix_mode: str = "none",
-    async_entropy_threshold: float = 0.35,
-    async_min_prefix_len: int = 4,
     anchor_num: int = 0,
     packed_accepted_counts: tuple[int, ...] | None = None,
 ):
@@ -868,10 +817,6 @@ def run_d3d_generate_async(
         raise ValueError("eval_async.py requires --block-size > 1")
     if int(async_blocks) < 1:
         raise ValueError("--async-blocks must be >= 1")
-    if async_prefix_mode not in ASYNC_PREFIX_MODES:
-        raise ValueError(f"--async-prefix-mode must be one of {sorted(ASYNC_PREFIX_MODES)}")
-    if int(async_min_prefix_len) < 1:
-        raise ValueError("--async-min-prefix-len must be >= 1")
     if int(anchor_num) < 0:
         raise ValueError("--anchor-num must be non-negative")
     if temperature > 1e-5 and int(top_k) <= 0:
@@ -1543,7 +1488,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     args.runtime = sync.runtime_metadata({'target': target_path, 'draft': draft_path,
                                           'tokenizer': tokenizer_path})
     args.use_kvcache = True
-    args.draft_backend = getattr(args, "draft_backend", "direct")
     args.drafter_tag = sync._safe_custom_tag(args.drafter_tag, sync._safe_tag(args.drafter))
     args.verifier_tag = sync._safe_tag(args.verifier)
     args.verifier, args.drafter, args.tokenizer = target_path, draft_path, tokenizer_path
@@ -1553,8 +1497,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError(f"eval_async.py currently supports only D3D drafter checkpoints, got {model_type!r}")
     if int(args.denoising_steps) != 1:
         raise ValueError("eval_async_packed.py currently requires --denoising-steps 1")
-    if args.async_prefix_mode != "none":
-        raise ValueError("eval_async_packed.py requires --async-prefix-mode none")
     if int(args.async_blocks) < 1:
         raise ValueError("--async-blocks must be >= 1")
 
@@ -1607,8 +1549,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         target_top_k=args.target_top_k, target_top_p=args.target_top_p, return_stats=True,
         verifier_device=args.verifier_device, draft_device=args.draft_device,
         async_blocks=args.async_blocks, attention_mask_mode=args.attention_mask_mode,
-        async_prefix_mode=args.async_prefix_mode, async_entropy_threshold=args.async_entropy_threshold,
-        async_min_prefix_len=args.async_min_prefix_len, anchor_num=args.anchor_num,
+        anchor_num=args.anchor_num,
         packed_accepted_counts=args.packed_accepted_counts,
     )
     if args.warmup_new_tokens:
@@ -1647,9 +1588,6 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             draft_device=args.draft_device,
             async_blocks=args.async_blocks,
             attention_mask_mode=args.attention_mask_mode,
-            async_prefix_mode=args.async_prefix_mode,
-            async_entropy_threshold=args.async_entropy_threshold,
-            async_min_prefix_len=args.async_min_prefix_len,
             anchor_num=args.anchor_num,
             packed_accepted_counts=args.packed_accepted_counts,
         )
@@ -1748,7 +1686,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = sync.build_arg_parser(include_tree_args=False)
+    parser = sync.build_arg_parser()
     parser.description = "Two-GPU all-acceptance-position packed D3D runner."
     parser.set_defaults(verifier_device="cuda:0", draft_device="cuda:1")
     parser.add_argument('--warmup-new-tokens', type=int, default=32)
@@ -1760,29 +1698,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="Number of block-size chunks generated for every packed acceptance outcome.",
-    )
-    parser.add_argument(
-        "--async-prefix-mode",
-        choices=sorted(ASYNC_PREFIX_MODES),
-        default="none",
-        help=(
-            "Entropy-based async reuse policy: none keeps the full lookahead block, "
-            "block_gate reuses only fully low-entropy blocks, prefix_gate reuses any "
-            "low-entropy prefix, and hybrid reuses the prefix only if it reaches "
-            "--async-min-prefix-len."
-        ),
-    )
-    parser.add_argument(
-        "--async-entropy-threshold",
-        type=float,
-        default=0.35,
-        help="Normalized entropy threshold used by async prefix gating modes.",
-    )
-    parser.add_argument(
-        "--async-min-prefix-len",
-        type=int,
-        default=4,
-        help="Minimum reusable prefix length for --async-prefix-mode hybrid.",
     )
     parser.add_argument(
         "--anchor-num",

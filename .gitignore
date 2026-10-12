@@ -25,8 +25,3 @@ answer_cache/
 !.env.example
 *.token
 *.secret
-
-# Legacy experiment outputs (D3DV2 / D3D_concurrency)
-*.jsonl
-**/cache/
-**/checkpoints/

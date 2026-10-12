@@ -1,7 +1,7 @@
 """Original D3D model arithmetic with an SSD-style paged attention backend.
 
 Only attention cache access changes: D3D's norms, residuals, RoPE, MLP and
-projection layers remain the exact implementation used by D3DV2.
+projection layers keep the same implementation as the single-request engine.
 """
 import types
 import sys

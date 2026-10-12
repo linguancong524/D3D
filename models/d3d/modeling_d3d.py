@@ -21,7 +21,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Optional, Tuple, TypedDict, Union
+from typing import Optional, Tuple, TypedDict, Union
 
 import torch
 from torch import nn
@@ -36,12 +36,9 @@ from transformers.modeling_layers import GradientCheckpointingLayer
 from transformers.modeling_outputs import (
     BaseModelOutputWithPast,
     CausalLMOutputWithPast,
-    QuestionAnsweringModelOutput,
-    SequenceClassifierOutputWithPast,
-    TokenClassifierOutput,
 )
 from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS, dynamic_rope_update
-from transformers.modeling_utils import ALL_ATTENTION_FUNCTIONS, PreTrainedModel
+from transformers.modeling_utils import PreTrainedModel
 from transformers.processing_utils import Unpack
 from transformers.utils import auto_docstring, can_return_tuple, is_torch_flex_attn_available, logging
 from .configuration_d3d import D3DConfig
@@ -70,7 +67,6 @@ import torch.nn.functional as F
 try:
     if not torch.cuda.is_available():
         raise ImportError('FlashAttention requires CUDA')
-    from flash_attn.ops.triton.layer_norm import rms_norm_fn as flash_rms_norm
     from flash_attn import flash_attn_func, flash_attn_varlen_func
     from flash_attn.bert_padding import index_first_axis, pad_input, unpad_input
     FLASH_ATTN_AVAILABLE = True
@@ -96,10 +92,6 @@ except ImportError:
     flash_attn_varlen_func = None
     index_first_axis = pad_input = unpad_input = None
 
-    def flash_rms_norm(x, weight, eps, **kwargs):
-        variance = x.float().pow(2).mean(-1, keepdim=True)
-        return (x * torch.rsqrt(variance + eps).to(x.dtype)) * weight
-
 try:
     if not torch.cuda.is_available():
         raise ImportError('Liger kernels require CUDA')
@@ -110,8 +102,7 @@ except ImportError:
 
 
 if is_torch_flex_attn_available():
-    from torch.nn.attention.flex_attention import BlockMask, create_block_mask, flex_attention
-    from transformers.integrations.flex_attention import make_flex_block_causal_mask
+    from torch.nn.attention.flex_attention import BlockMask, create_block_mask
 
 
 logger = logging.get_logger(__name__)
@@ -225,34 +216,6 @@ def normalize_sdpa_attention_mask(
         # are negative. Converting them with `mask > 0` masks every visible key.
         return mask.to(dtype=dtype)
     return mask != 0
-
-
-def eager_attention_forward(
-    module: nn.Module,
-    query: torch.Tensor,
-    key: torch.Tensor,
-    value: torch.Tensor,
-    attention_mask: Optional[torch.Tensor],
-    scaling: float,
-    dropout: float = 0.0,
-    **kwargs,
-):
-    key_states = repeat_kv(key, module.num_key_value_groups)
-    value_states = repeat_kv(value, module.num_key_value_groups)
-
-    attn_weights = torch.matmul(query, key_states.transpose(2, 3)) * scaling
-    if attention_mask is not None:
-        causal_mask = attention_mask[:, :, :, : key_states.shape[-2]]
-        attn_weights = attn_weights + causal_mask
-
-    attn_weights = nn.functional.softmax(
-        attn_weights, dim=-1, dtype=torch.float32).to(query.dtype)
-    attn_weights = nn.functional.dropout(
-        attn_weights, p=dropout, training=module.training)
-    attn_output = torch.matmul(attn_weights, value_states)
-    attn_output = attn_output.transpose(1, 2).contiguous()
-
-    return attn_output, attn_weights
 
 
 class D3DAttention(nn.Module):

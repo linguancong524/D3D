@@ -1,4 +1,4 @@
-"""GPU regression checks against original D3DV2 D3D operations."""
+"""GPU regression checks against the reference D3D operations."""
 import torch
 from transformers.cache_utils import DynamicCache
 from single import eval_sync as original
@@ -51,5 +51,5 @@ def validate_draft(engine,path,prompt):
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result,indent=2))
     if not recovery_equal or equal/total<0.99:
-        raise RuntimeError('D3D forward differs materially from D3DV2 reference')
+        raise RuntimeError('D3D forward differs materially from the reference implementation')
     return result

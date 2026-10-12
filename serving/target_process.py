@@ -1,7 +1,6 @@
 """Persistent target worker. Only CPU request metadata crosses the pipe."""
 import multiprocessing as mp
 import traceback
-import time
 import torch
 from serving.backend import Runner, Sequence, SamplingParams
 from d3d_utils import resolve_model_path
@@ -13,8 +12,6 @@ def _worker(pipe, path, pages):
         with torch.inference_mode():
             runner = Runner(resolve_model_path(path), 'cuda:0', pages=pages)
             sequences = {}
-            profile_enabled = False
-            forward_spans = []
             pipe.send(('ok', None))
             while True:
                 command, payload, updates = pipe.recv()
@@ -44,30 +41,12 @@ def _worker(pipe, path, pages):
                         seq = sequences[key]
                         seq.prefix = prefix
                         group.append(seq)
-                    if profile_enabled:
-                        torch.cuda.synchronize(0)
-                        started = time.perf_counter()
                     result = runner.forward(group, blocks).cpu().tolist()
-                    if profile_enabled:
-                        forward_spans.append((started, time.perf_counter()))
-                elif command == 'profile_forward':
-                    profile_enabled = bool(payload)
-                    forward_spans = []
-                    result = None
-                elif command == 'profile_cuda':
-                    from timing_forward import ForwardTimer
-                    cuda_timer = ForwardTimer(runner, 'verify')
-                    result = None
-                elif command == 'cuda_timings':
-                    result = cuda_timer.finish()
-                elif command == 'forward_spans':
-                    result = forward_spans
                 elif command == 'reset_stats':
                     if sequences:
                         raise RuntimeError('Previous generation left target sequences allocated')
                     torch.cuda.synchronize(0)
                     torch.cuda.reset_peak_memory_stats(0)
-                    forward_spans = []
                     result = None
                 elif command == 'stats':
                     torch.cuda.synchronize(0)

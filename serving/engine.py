@@ -1,4 +1,4 @@
-"""Strict-concurrency D3DV2 greedy engine; one target and one D3D instance.
+"""Strict-concurrency D3D greedy engine; one target and one D3D instance.
 
 SSD Sequence/page ownership reused. Request admission is capped explicitly.
 Target verification executes in a dedicated process on GPU0 while GPU1 predicts
