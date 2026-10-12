@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-export CUDA_VISIBLE_DEVICES=0\,1 D3D_PYTHON=/inspire/ssd/project/sais-bio/public/linguancong/miniconda3/envs/D3D/bin/python
-bash /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/run.sh --datasets math500 --concurrency 1 2 --max-samples 2 --max-new-tokens 8 --repeats 1 --draft-microbatch 4 --pages 512 --output /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/results/runs/20260920_090700_692800/benchmark.json 
-/inspire/ssd/project/sais-bio/public/linguancong/miniconda3/envs/D3D/bin/python /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/audit_results.py /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/results/runs/20260920_090700_692800/benchmark.json 
-/inspire/ssd/project/sais-bio/public/linguancong/miniconda3/envs/D3D/bin/python /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/report.py /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/results/runs/20260920_090700_692800/benchmark.json --output /inspire/ssd/project/sais-bio/public/linguancong/FUN_SPACE/T3D/D3D_concurrency/results/runs/20260920_090700_692800/table.md 

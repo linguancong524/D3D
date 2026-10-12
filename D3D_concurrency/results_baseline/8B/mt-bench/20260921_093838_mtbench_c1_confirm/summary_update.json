@@ -1,8 +1,0 @@
-{
-  "old_run": "20260921_081947_n32_t512_r2",
-  "confirmation_run": "20260921_093838_mtbench_c1_confirm",
-  "old_pooled_tps": 32.614443293836516,
-  "confirmation_pooled_tps": 41.74062380269792,
-  "stable": true,
-  "summary_updated": true
-}

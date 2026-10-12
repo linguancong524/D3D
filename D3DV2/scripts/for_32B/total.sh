@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-bash "$SCRIPT_DIR/t0.sh"
-bash "$SCRIPT_DIR/t1.sh"
-
-bash /inspire/ssd/project/sais-bio/public/linguancong/gpu_tool/occupy_gpu.sh

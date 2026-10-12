@@ -1,4 +1,0 @@
-benchmark,concurrency_1_tps,concurrency_4_tps,concurrency_8_tps,concurrency_16_tps
-math500,39.68,140.96,263.18,465.39
-humaneval,39.33,159.51,260.16,486.32
-mt-bench,41.74,152.71,278.63,436.36

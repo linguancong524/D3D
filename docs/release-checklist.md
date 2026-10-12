@@ -3,7 +3,6 @@
 The repository is a clean source export, not an export of the surrounding
 experiment workspace. Publication uses an isolated clone of
 `linguancong524/D3D`; the enclosing local experiment repository is not pushed.
-Existing GitHub legacy directories are preserved.
 
 ## Publication packaging — 2026-10-12
 
@@ -36,8 +35,7 @@ Existing GitHub legacy directories are preserved.
 - Add the paper's approved result table/figure with matching run metadata.
 - Revoke tokens previously shared in chat; authenticate locally with newly
   issued, least-privilege credentials. Do not share credentials in chat.
-- Review the existing GitHub branch and preserve a backup before replacing
-  its contents. Export only this directory, never the parent repository.
+- Export only this directory, never the parent experiment repository.
 
 ## Lightweight checks
 

@@ -1,5 +1,0 @@
-pair,dataset,concurrency,anchor,microbatch,attempts,tps_best,tps_attempts,tps_pooled,decode_tps_best,hit_rate,mean_accept,output_tokens_best,wall_s_best,prefill_s_best,peak_target_gb,run_id,origin
-1.7b_8b,math500,1,3,1,2,247.5,"237.9, 247.5",242.59,251.38,0.8455,7.579,218027,880.9,13.6,35.86,20260922_033213_math500_rerun,re-measurement
-1.7b_8b,math500,4,1,4,2,581.01,"581.0, 579.1",580.06,605.62,0.6371,7.588,218230,375.6,15.3,35.86,20260922_033213_math500_rerun,re-measurement
-1.7b_8b,math500,8,1,8,2,742.29,"742.3, 739.2",740.76,792.99,0.6357,7.59,217418,292.9,18.7,35.86,20260922_033213_math500_rerun,re-measurement
-1.7b_8b,math500,16,1,16,2,859.39,"859.4, 858.1",858.73,932.56,0.6366,7.596,217569,253.2,19.9,35.86,20260922_033213_math500_rerun,re-measurement

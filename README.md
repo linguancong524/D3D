@@ -207,10 +207,6 @@ docs/         Architecture, model details, and validation notes
 tests/        Model-loading, release, and metric-accounting checks
 ```
 
-The existing `D3DV2/` and `D3D_concurrency/` directories on GitHub are retained
-as legacy experiment code. The root-level entry points documented here use
-the current `single/` and `serving/` implementations.
-
 ## Citation & License
 
 If D3D is useful in your research, please cite the

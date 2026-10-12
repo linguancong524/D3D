@@ -1,2 +1,0 @@
-math500，humnaeval，mt-bench
-基线用512maxtoken，去冷启动，每个benchmark前32条测的
