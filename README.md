@@ -10,16 +10,9 @@
 <p align="center">
   <a href="https://openreview.net/forum?id=owCZMqNsqR"><img src="https://img.shields.io/badge/Paper-OpenReview-6366f1?style=flat-square" alt="Paper"></a>
   <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"><img src="https://img.shields.io/badge/Models-D3D_Collection-fbbf24?style=flat-square" alt="D3D model collection"></a>
-  <a href="https://github.com/linguancong524/D3D/actions/workflows/ci.yml"><img src="https://github.com/linguancong524/D3D/actions/workflows/ci.yml/badge.svg" alt="CPU checks"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/Code-MIT-14b8a6?style=flat-square" alt="MIT code license"></a>
-</p>
-
-<p align="center">
-  <a href="https://openreview.net/forum?id=owCZMqNsqR">Paper</a> ·
-  <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75">Models</a> ·
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="docs/architecture.md">Architecture</a> ·
-  <a href="#benchmarking">Benchmarks</a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-Get_started-22c55e?style=flat-square" alt="Quick start"></a>
+  <a href="docs/architecture.md"><img src="https://img.shields.io/badge/Architecture-Docs-0ea5e9?style=flat-square" alt="Architecture guide"></a>
+  <a href="#benchmarking"><img src="https://img.shields.io/badge/Benchmarks-Protocol-f97316?style=flat-square" alt="Benchmark protocol"></a>
 </p>
 
 <a id="overview"></a>
