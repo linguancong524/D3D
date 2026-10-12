@@ -15,6 +15,7 @@ echo "Datasets: $DATASETS"
   --draft "$D3D_DRAFT_MODEL" \
   --datasets $DATASETS \
   --concurrency ${D3D_CONCURRENCY:-1 4 8 16} \
+  --anchor-num "${D3D_ANCHOR_NUM:-1}" \
   --max-samples "${D3D_MAX_SAMPLES:-32}" \
   --max-new-tokens "${D3D_MAX_NEW_TOKENS:-2048}" \
   --pages "${D3D_PAGES:-512}" \

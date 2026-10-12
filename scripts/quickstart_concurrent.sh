@@ -12,6 +12,7 @@ exec "$PYTHON_BIN" serving/bench.py \
   --max-samples "${D3D_MAX_SAMPLES:-4}" \
   --max-new-tokens "${D3D_MAX_NEW_TOKENS:-128}" \
   --concurrency ${D3D_CONCURRENCY:-4} \
+  --anchor-num "${D3D_ANCHOR_NUM:-1}" \
   --pages "${D3D_PAGES:-512}" \
   --output "${D3D_CONCURRENT_OUTPUT:-outputs/concurrent/quickstart.json}" \
   $BASELINE_FLAG
