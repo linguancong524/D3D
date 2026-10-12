@@ -10,7 +10,7 @@ experiment workspace. Publication uses an isolated clone of
   in [models.md](models.md).
 - Weights retain their original FP32 precision. Training artifacts and caches
   are excluded; inference compatibility files and model cards are included.
-- GitHub includes the current source, an architecture banner, model links,
+- GitHub includes the current source, the method figure, model links,
   and CPU CI. No new benchmark-performance claim is made.
 - Software citation metadata uses the collective name already present in
   the source license. Paper authors and affiliations are not fabricated.
