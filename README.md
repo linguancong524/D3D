@@ -233,8 +233,6 @@ tests/        Model-loading, release, and metric-accounting checks
 
 If D3D is useful in your research, please cite the
 [paper](https://openreview.net/forum?id=owCZMqNsqR).
-[CITATION.cff](CITATION.cff) describes this software repository; consult the
-paper for the author list and publication details.
 
 D3D-authored code is released under the [MIT License](LICENSE). Included
 third-party code and Qwen-derived weights retain their own terms; see

@@ -12,8 +12,8 @@ experiment workspace. Publication uses an isolated clone of
   are excluded; inference compatibility files and model cards are included.
 - GitHub includes the current source, the method figure, model links,
   and CPU CI. No new benchmark-performance claim is made.
-- Software citation metadata uses the collective name already present in
-  the source license. Paper authors and affiliations are not fabricated.
+- The repository ships no software citation metadata; the paper linked from
+  the README is the citation of record.
 
 ## Before publication
 
