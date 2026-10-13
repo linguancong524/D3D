@@ -120,8 +120,6 @@ bash scripts/quickstart_single.sh
 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 ```
 
-Results are saved under the Git-ignored `outputs/` directory.
-
 <details>
 <summary><strong>Use the 32B target with the 24-layer pruned draft</strong></summary>
 

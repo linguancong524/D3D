@@ -116,8 +116,6 @@ bash scripts/quickstart_single.sh
 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 ```
 
-结果保存在被 Git 忽略的 `outputs/` 目录下。
-
 <details>
 <summary><strong>使用 32B 目标 + 24 层剪枝草稿</strong></summary>
 
