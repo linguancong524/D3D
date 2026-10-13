@@ -3,9 +3,13 @@ import hashlib
 import json
 import random
 import statistics
+import sys
 import time
 import urllib.request
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT))
 
 
 def call(base_url, endpoint, payload=None):
@@ -43,7 +47,10 @@ def summarize(rows):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:30000")
-    parser.add_argument("--dataset", required=True)
+    parser.add_argument(
+        "--dataset", required=True,
+        help="dataset name such as math500 (auto-download) or a local JSONL path",
+    )
     parser.add_argument("--tokenizer", required=True)
     parser.add_argument("--samples", type=int, default=8)
     parser.add_argument("--repetitions", type=int, default=3)
@@ -57,14 +64,27 @@ def main():
     output = Path(args.output)
     if output.exists():
         raise FileExistsError(output)
-    source = Path(args.dataset).read_bytes()
-    dataset = [json.loads(line) for line in source.splitlines() if line.strip()]
+    dataset_path = Path(args.dataset)
+    if dataset_path.is_file():
+        source = dataset_path.read_bytes()
+        dataset = [json.loads(line) for line in source.splitlines() if line.strip()]
+        question_fn = lambda row: row["problem"] if "problem" in row else row["question"]
+    else:
+        from common.data import DATASETS, load_rows
+
+        if args.dataset not in DATASETS:
+            raise ValueError(
+                f"unknown dataset {args.dataset!r}; use a registered name or JSONL path"
+            )
+        dataset, _, _ = load_rows(args.dataset, None)
+        source = json.dumps(dataset, sort_keys=True, default=str).encode()
+        question_fn = DATASETS[args.dataset]["question"]
     indices = random.Random(args.seed).sample(range(len(dataset)), args.samples + 1)
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     prompts = []
     for index in indices:
         row = dataset[index]
-        question = row["problem"] if "problem" in row else row["question"]
+        question = question_fn(row)
         text = question + "\nPlease reason step by step and put your final answer in \\boxed{}."
         prompts.append(tokenizer.apply_chat_template(
             [{"role": "user", "content": text}],

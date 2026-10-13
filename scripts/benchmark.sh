@@ -13,7 +13,7 @@ for dataset in $DATASETS; do
     --drafter "$DRAFT_MODEL" \
     --verifier "$TARGET_MODEL" \
     --dataset "$dataset" \
-    --max-samples 32 \
+    --max-samples 128 \
     --max-new-tokens 2048 \
     --verifier-device cuda:0 \
     --draft-device cuda:1 \

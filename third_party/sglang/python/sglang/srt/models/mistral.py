@@ -192,7 +192,4 @@ class Mistral3ForConditionalGeneration:
         return self.inner.load_weights(normalize(weights))
 
 
-EntryClass = [
-    globals()["Mistral" + "ForCausalLM"],
-    globals()["Mistral3" + "ForConditionalGeneration"],
-]
+EntryClass = [MistralForCausalLM, Mistral3ForConditionalGeneration]

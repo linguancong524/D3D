@@ -38,7 +38,7 @@ def main():
     p.add_argument('--target',default=TARGET);p.add_argument('--draft',default=DRAFT)
     p.add_argument('--concurrency',type=int,nargs='+',default=[1,4,8,16])
     p.add_argument('--datasets',nargs='+',default=['math500','humaneval','mt-bench'])
-    p.add_argument('--max-samples',type=int,default=32)
+    p.add_argument('--max-samples',type=int,default=128)
     p.add_argument('--max-new-tokens',type=int,default=2048)
     p.add_argument('--repeats',type=int,default=1)
     p.add_argument('--draft-microbatch',type=int,default=4)

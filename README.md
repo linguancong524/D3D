@@ -214,6 +214,18 @@ bash scripts/sglang/launch.sh draft   # terminal 1
 bash scripts/sglang/launch.sh remote  # terminal 2
 ```
 
+Then run one automatically downloaded MATH-500 example from a third terminal:
+
+```bash
+.venv-sglang/bin/python scripts/sglang/benchmark.py \
+  --dataset math500 \
+  --tokenizer "$TARGET_MODEL" \
+  --samples 1 --repetitions 1 --max-new-tokens 128 \
+  --output outputs/sglang/example.json
+```
+
+The dataset is downloaded automatically and cached by Hugging Face Datasets.
+
 ## 🗂️ Repository Guide
 
 ```text

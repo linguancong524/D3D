@@ -20,12 +20,7 @@ from sglang.srt.models.llava import (
     LlavaQwenForCausalLM,
 )
 from sglang.srt.models.llavavid import LlavaVidForCausalLM
-_mistral_model = __import__(
-    "sglang.srt.models." + "mistral", fromlist=["Mistral3ForConditionalGeneration"]
-)
-Mistral3ForConditionalGeneration = getattr(
-    _mistral_model, "Mistral3" + "ForConditionalGeneration"
-)
+from sglang.srt.models.mistral import Mistral3ForConditionalGeneration
 from sglang.srt.multimodal.mm_utils import (
     ensure_numpy,
     expand2square,

@@ -207,6 +207,18 @@ bash scripts/sglang/launch.sh draft   # 终端 1
 bash scripts/sglang/launch.sh remote  # 终端 2
 ```
 
+然后在第三个终端运行一个会自动下载数据集的 MATH-500 示例：
+
+```bash
+.venv-sglang/bin/python scripts/sglang/benchmark.py \
+  --dataset math500 \
+  --tokenizer "$TARGET_MODEL" \
+  --samples 1 --repetitions 1 --max-new-tokens 128 \
+  --output outputs/sglang/example.json
+```
+
+数据集会自动下载，并由 Hugging Face Datasets 缓存。
+
 ## 🗂️ 仓库结构
 
 ```text

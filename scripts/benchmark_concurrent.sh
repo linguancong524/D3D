@@ -20,7 +20,7 @@ for CONCURRENCY in ${CONCURRENCY:-1 4 8 16}; do
     --datasets $DATASETS \
     --concurrency "$CONCURRENCY" \
     --anchor-num "$ANCHOR_NUM" \
-    --max-samples 32 \
+    --max-samples 128 \
     --max-new-tokens 2048 \
     --pages 512 \
     --output "outputs/concurrent/benchmark_c${CONCURRENCY}.json" \
