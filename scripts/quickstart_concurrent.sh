@@ -2,24 +2,21 @@
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
-BASELINE_FLAG=""
-[ "${D3D_BASELINE:-1}" = "0" ] && BASELINE_FLAG="--no-baseline"
-
-CONCURRENCY="${D3D_CONCURRENCY:-4}"
+CONCURRENCY="${CONCURRENCY:-4}"
 if [ "$CONCURRENCY" -gt 1 ]; then
-  ANCHOR_NUM="${D3D_CONCURRENT_ANCHOR_NUM:-1}"
+  ANCHOR_NUM=1
 else
-  ANCHOR_NUM="${D3D_ANCHOR_NUM:-3}"
+  ANCHOR_NUM=3
 fi
 
 exec "$PYTHON_BIN" serving/bench.py \
-  --target "$D3D_TARGET_MODEL" \
-  --draft "$D3D_DRAFT_MODEL" \
-  --datasets ${D3D_DATASETS:-math500} \
-  --max-samples "${D3D_MAX_SAMPLES:-4}" \
-  --max-new-tokens "${D3D_MAX_NEW_TOKENS:-128}" \
+  --target "$TARGET_MODEL" \
+  --draft "$DRAFT_MODEL" \
+  --datasets math500 \
+  --max-samples 4 \
+  --max-new-tokens 128 \
   --concurrency "$CONCURRENCY" \
   --anchor-num "$ANCHOR_NUM" \
-  --pages "${D3D_PAGES:-512}" \
-  --output "${D3D_CONCURRENT_OUTPUT:-outputs/concurrent/quickstart.json}" \
-  $BASELINE_FLAG
+  --pages 512 \
+  --output outputs/concurrent/quickstart.json \
+  "$@"

@@ -52,9 +52,9 @@ Summaries then carry the two headline numbers:
 
 Single-request summaries group them in a `headline` block; concurrent benchmark
 cells add `baseline_tps`, `speedup`, and `accept_length` fields and also
-collect them under the payload `summary`. Set `D3D_BASELINE=0` (scripts) or
-`--no-baseline` (Python entry points) to skip the baseline; `speedup` is then
-left empty and the D3D run itself is unchanged.
+collect them under the payload `summary`. Append `--no-baseline` to any script
+to skip the baseline; `speedup` is then left empty and the D3D run itself is
+unchanged.
 
 ## Metric boundaries
 
@@ -72,22 +72,24 @@ not executed or graded by these speed scripts. Speed runs are not quality
 benchmarks or claims of pass@1. GSM8K/MATH answer matching is diagnostic, not a
 replacement for the paper's complete quality evaluation protocol.
 
-Override datasets with `D3D_DATASETS="math500 humaneval"`; select a local or
-Hub checkpoint with `D3D_TARGET_MODEL` and `D3D_DRAFT_MODEL`. The scripts use
-block size 16, one denoising step, three backup anchors, greedy decoding, and
-strictly causal draft-prefix attention (matching the serving backend), with
-thinking disabled. Concurrency 1 keeps the configured three anchors
-(`D3D_ANCHOR_NUM`), while concurrent cells drop to one anchor
-(`D3D_CONCURRENT_ANCHOR_NUM=1`), since multiple anchor branches do not fit the
-paged KV budget once requests overlap. `D3D_MAX_SAMPLES` changes the sample
-cap. The concurrent benchmark script invokes the runner once per concurrency,
-so each concurrency writes its own result file (`benchmark_c1.json`,
-`benchmark_c4.json`, ...).
-`D3D_MAX_NEW_TOKENS` overrides the default 2048-token limit for smoke runs;
-these shorter runs are not formal protocol results. The concurrent
-script accepts `D3D_CONCURRENCY="1 4 8 16"`.
+Scripts forward extra flags to their Python entry point, so configuration
+belongs on the command line. Override datasets with
+`DATASETS="math500 humaneval"`; select checkpoints with `--verifier` /
+`--drafter` (single request) or `--target` / `--draft` (concurrent), or set the
+`TARGET_MODEL` / `DRAFT_MODEL` fallbacks. The scripts use block size 16, one
+denoising step, three backup anchors, greedy decoding, and strictly causal
+draft-prefix attention (matching the serving backend), with thinking disabled.
+Concurrency 1 keeps the default three anchors, while concurrent cells pass one
+anchor (`--anchor-num` overrides both), since multiple anchor branches do not
+fit the paged KV budget once requests overlap. `--max-samples` changes the
+sample cap. The concurrent benchmark script invokes the runner once per
+concurrency, so each concurrency writes its own result file
+(`benchmark_c1.json`, `benchmark_c4.json`, ...).
+`--max-new-tokens` overrides the default 2048-token limit for smoke runs;
+these shorter runs are not formal protocol results. The concurrent script
+loops over `CONCURRENCY="1 4 8 16"` by default.
 
-For larger target models, the paged KV cache may need a lower `D3D_PAGES`
+For larger target models, the paged KV cache may need a lower `--pages`
 value to leave room for weights and temporary buffers. The default is 512
 pages per device; a 32B target can require a smaller pool even on an 80 GB
 GPU. The runner checks that the requested context and worst-case branch page

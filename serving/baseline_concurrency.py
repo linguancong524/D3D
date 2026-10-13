@@ -113,7 +113,7 @@ def telemetry():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--target', default=os.environ.get('D3D_TARGET_MODEL', 'Qwen/Qwen3-8B'))
+    parser.add_argument('--target', default=os.environ.get('TARGET_MODEL', 'Qwen/Qwen3-8B'))
     parser.add_argument('--datasets', nargs='+', default=['math500', 'humaneval', 'mt-bench'])
     parser.add_argument('--concurrency', nargs='+', type=int, default=[1, 4, 8, 16])
     parser.add_argument('--max-samples', type=int, default=0)

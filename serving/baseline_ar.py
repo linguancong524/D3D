@@ -49,7 +49,7 @@ def decode(worker, prompts, steps, capture=False):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument('--target', default=os.environ.get('D3D_TARGET_MODEL', 'Qwen/Qwen3-8B'))
+    p.add_argument('--target', default=os.environ.get('TARGET_MODEL', 'Qwen/Qwen3-8B'))
     p.add_argument('--datasets', nargs='+', default=['aime25'])
     p.add_argument('--batch-sizes', type=int, nargs='+', default=[1, 4, 8, 16, 32])
     p.add_argument('--max-samples', type=int, default=32)

@@ -1484,8 +1484,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--use-kvcache is currently supported only for D3D/Qwen3 single-chain paths")
 
     dtype = resolve_dtype(args.dtype)
-    target_attn = os.environ.get("TARGET_ATTN_IMPLEMENTATION", args.target_attn_implementation)
-    draft_attn = os.environ.get("DRAFT_ATTN_IMPLEMENTATION", args.draft_attn_implementation)
+    target_attn = args.target_attn_implementation or os.environ.get(
+        "TARGET_ATTN_IMPLEMENTATION", "flash_attention_2"
+    )
+    draft_attn = args.draft_attn_implementation or os.environ.get(
+        "DRAFT_ATTN_IMPLEMENTATION", "flash_attention_2"
+    )
     args.target_attn_implementation = target_attn
     args.draft_attn_implementation = draft_attn
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=False)
@@ -1725,8 +1729,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--confidence-threshold", type=float, default=0.9)
     parser.add_argument("--attention-mask-mode", choices=["block_causal", "causal"], default="block_causal")
     parser.add_argument("--collect-stage-timings", action="store_true")
-    parser.add_argument("--target-attn-implementation", default="flash_attention_2")
-    parser.add_argument("--draft-attn-implementation", default="flash_attention_2")
+    parser.add_argument("--target-attn-implementation", default=None)
+    parser.add_argument("--draft-attn-implementation", default=None)
     return parser
 
 

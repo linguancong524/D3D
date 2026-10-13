@@ -18,9 +18,9 @@ check_hardware() {
 }
 
 check_models() {
-  : "${D3D_TARGET_MODEL:=Qwen/Qwen3-8B}"
-  : "${D3D_DRAFT_MODEL:=lingc8/D3D-1.7B-to-8B}"
-  export D3D_TARGET_MODEL D3D_DRAFT_MODEL
+  : "${TARGET_MODEL:=Qwen/Qwen3-8B}"
+  : "${DRAFT_MODEL:=lingc8/D3D-1.7B-to-8B}"
+  export TARGET_MODEL DRAFT_MODEL
 }
 
 cd "$REPO_ROOT"

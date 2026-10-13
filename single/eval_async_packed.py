@@ -1561,8 +1561,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         raise ValueError("--async-blocks must be >= 1")
 
     dtype = resolve_dtype(args.dtype)
-    target_attn = os.environ.get("TARGET_ATTN_IMPLEMENTATION", args.target_attn_implementation)
-    draft_attn = os.environ.get("DRAFT_ATTN_IMPLEMENTATION", args.draft_attn_implementation)
+    target_attn = args.target_attn_implementation or os.environ.get(
+        "TARGET_ATTN_IMPLEMENTATION", "flash_attention_2"
+    )
+    draft_attn = args.draft_attn_implementation or os.environ.get(
+        "DRAFT_ATTN_IMPLEMENTATION", "flash_attention_2"
+    )
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=False)
     eos_ids = eos_token_ids(tokenizer, args.eos_token_id) or sync.STOP_TOKEN_IDS
 

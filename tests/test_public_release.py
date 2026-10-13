@@ -32,22 +32,22 @@ class PublicReleaseTests(unittest.TestCase):
                 for token_limit in (None, '128'):
                     with self.subTest(script=script, token_limit=token_limit):
                         environment = dict(os.environ)
-                        environment.pop('D3D_MAX_NEW_TOKENS', None)
                         environment.update(
                             PYTHON_BIN=str(executable), D3D_CAPTURE=str(capture),
-                            D3D_DATASETS='math500', D3D_OUTPUT_DIR=str(root / 'outputs'),
-                            D3D_CONCURRENT_OUTPUT=str(root / 'concurrent.json'),
+                            DATASETS='math500', CONCURRENCY='4',
                         )
+                        command = ['bash', str(ROOT / 'scripts' / script)]
                         if token_limit is not None:
-                            environment['D3D_MAX_NEW_TOKENS'] = token_limit
+                            command += ['--max-new-tokens', token_limit]
                         result = subprocess.run(
-                            ['bash', str(ROOT / 'scripts' / script)], cwd=root,
-                            env=environment, capture_output=True, text=True,
+                            command, cwd=root, env=environment, capture_output=True, text=True,
                         )
                         self.assertEqual(result.returncode, 0, result.stderr)
                         arguments = json.loads(capture.read_text().splitlines()[-1])
-                        self.assertEqual(arguments[arguments.index('--max-new-tokens') + 1],
-                                         token_limit or '2048')
+                        # The script passes its default first; appended CLI flags come last.
+                        index = max(i for i, value in enumerate(arguments)
+                                    if value == '--max-new-tokens')
+                        self.assertEqual(arguments[index + 1], token_limit or '2048')
 
     def test_standard_library_concurrent_is_not_shadowed(self):
         result = subprocess.run(
@@ -72,8 +72,7 @@ class PublicReleaseTests(unittest.TestCase):
             environment = dict(os.environ)
             environment.update(
                 PYTHON_BIN=str(executable), D3D_CAPTURE=str(capture),
-                D3D_DATASETS='math500', D3D_CONCURRENCY='1 4',
-                D3D_CONCURRENT_OUTPUT=str(root / 'outputs' / 'concurrent.json'),
+                DATASETS='math500', CONCURRENCY='1 4',
             )
             result = subprocess.run(
                 ['bash', str(ROOT / 'scripts' / 'benchmark_concurrent.sh')],

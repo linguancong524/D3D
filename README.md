@@ -98,8 +98,10 @@ sufficient host memory. The concurrent backend requires FlashAttention.
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0,1
-export D3D_TARGET_MODEL=Qwen/Qwen3-8B
-export D3D_DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+
+# optional: override the defaults for every script
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 ```
 
 The target runs on `cuda:0`, and the draft runs on `cuda:1`. Model IDs also
@@ -108,27 +110,43 @@ a Hugging Face token.
 
 ### 2. Run asynchronous decoding
 
+Every script forwards extra flags to its Python entry point, so prefer command
+line options over environment variables. Single-request scripts take
+`--verifier` / `--drafter`; concurrent scripts take `--target` / `--draft`.
+
 **Single request** — one MATH-500 sample, up to 128 generated tokens:
 
 ```bash
 bash scripts/quickstart_single.sh
+
+# e.g. another pair with a longer generation cap
+bash scripts/quickstart_single.sh \
+    --verifier Qwen/Qwen3-32B \
+    --drafter lingc8/D3D-24D-p1.7B-to-32B \
+    --max-new-tokens 512
 ```
 
 **Concurrent requests** — four samples at concurrency 4:
 
 ```bash
-D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
+bash scripts/quickstart_concurrent.sh
+
+# e.g. concurrency 8 with 256 KV pages
+CONCURRENCY=8 bash scripts/quickstart_concurrent.sh --pages 256
 ```
 
 <details>
 <summary><strong>Use the 32B target with the 24-layer pruned draft</strong></summary>
 
 ```bash
-export D3D_TARGET_MODEL=Qwen/Qwen3-32B
-export D3D_DRAFT_MODEL=lingc8/D3D-24D-p1.7B-to-32B
-bash scripts/quickstart_single.sh
+bash scripts/quickstart_single.sh \
+    --verifier Qwen/Qwen3-32B \
+    --drafter lingc8/D3D-24D-p1.7B-to-32B
 
-D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
+bash scripts/quickstart_concurrent.sh \
+    --target Qwen/Qwen3-32B \
+    --draft lingc8/D3D-24D-p1.7B-to-32B \
+    --concurrency 4 --pages 128
 ```
 
 </details>
@@ -136,18 +154,19 @@ D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 <details>
 <summary><strong>Useful configuration options</strong></summary>
 
+Scripts pass their defaults as flags, and anything appended on the command line
+wins. Only a few environment variables remain:
+
 | Variable | Purpose | Default |
 |:---|:---|:---|
-| `D3D_TARGET_MODEL` | Target verifier path / Hub ID | `Qwen/Qwen3-8B` |
-| `D3D_DRAFT_MODEL` | Draft checkpoint path / Hub ID | `lingc8/D3D-1.7B-to-8B` |
-| `D3D_MAX_NEW_TOKENS` | Generation cap | 128 for quick starts; 2048 for benchmarks |
-| `D3D_BLOCK_SIZE` | Single-request draft block size | 16 |
-| `D3D_ANCHOR_NUM` | Anchor candidate count for single-request runs and concurrency 1 | 3 |
-| `D3D_CONCURRENT_ANCHOR_NUM` | Anchor candidate count for concurrency > 1 | 1 |
-| `D3D_CONCURRENCY` | Concurrent quick-start request count | 4 |
-| `D3D_PAGES` | Concurrent KV pages per device | 512 |
+| `TARGET_MODEL` | Target verifier used by every script | `Qwen/Qwen3-8B` |
+| `DRAFT_MODEL` | Draft checkpoint used by every script | `lingc8/D3D-1.7B-to-8B` |
+| `DATASETS` | Dataset list for the two benchmark scripts | the seven benchmarks |
+| `CONCURRENCY` | Quick-start request count, or benchmark sweep list | `4` / `1 4 8 16` |
 | `D3D_DATA_CACHE` | Optional existing JSONL dataset cache | `data_cache/` |
-| `D3D_BASELINE` | Run the single-GPU target-only AR baseline first (`0` disables) | `1` |
+
+Everything else is a flag, for example `--max-samples`, `--max-new-tokens`,
+`--block-size`, `--anchor-num`, `--pages` or `--no-baseline`.
 
 Use `python single/eval_async_packed.py --help` or
 `python -m serving.bench --help` for the full set of options.

@@ -95,8 +95,10 @@ FlashAttention。
 
 ```bash
 export CUDA_VISIBLE_DEVICES=0,1
-export D3D_TARGET_MODEL=Qwen/Qwen3-8B
-export D3D_DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+
+# 可选：覆盖所有脚本的默认模型
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 ```
 
 目标模型运行在 `cuda:0`，草稿模型运行在 `cuda:1`。模型 ID 也接受本地
@@ -104,27 +106,43 @@ checkpoint 目录。下载公开模型不需要 Hugging Face token。
 
 ### 2. 运行异步解码
 
+每个脚本都会把多余参数透传给对应的 Python 入口，因此优先用命令行参数，
+少用环境变量。单请求脚本用 `--verifier` / `--drafter`，并发脚本用
+`--target` / `--draft`。
+
 **单请求** —— 一条 MATH-500 样本，最多生成 128 个 token：
 
 ```bash
 bash scripts/quickstart_single.sh
+
+# 例如换一对模型并放宽生成长度
+bash scripts/quickstart_single.sh \
+    --verifier Qwen/Qwen3-32B \
+    --drafter lingc8/D3D-24D-p1.7B-to-32B \
+    --max-new-tokens 512
 ```
 
 **并发请求** —— 四请求并发 4：
 
 ```bash
-D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
+bash scripts/quickstart_concurrent.sh
+
+# 例如并发 8、每卡 256 个 KV page
+CONCURRENCY=8 bash scripts/quickstart_concurrent.sh --pages 256
 ```
 
 <details>
 <summary><strong>使用 32B 目标 + 24 层剪枝草稿</strong></summary>
 
 ```bash
-export D3D_TARGET_MODEL=Qwen/Qwen3-32B
-export D3D_DRAFT_MODEL=lingc8/D3D-24D-p1.7B-to-32B
-bash scripts/quickstart_single.sh
+bash scripts/quickstart_single.sh \
+    --verifier Qwen/Qwen3-32B \
+    --drafter lingc8/D3D-24D-p1.7B-to-32B
 
-D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
+bash scripts/quickstart_concurrent.sh \
+    --target Qwen/Qwen3-32B \
+    --draft lingc8/D3D-24D-p1.7B-to-32B \
+    --concurrency 4 --pages 128
 ```
 
 </details>
@@ -132,18 +150,18 @@ D3D_PAGES=128 D3D_CONCURRENCY=4 bash scripts/quickstart_concurrent.sh
 <details>
 <summary><strong>常用配置项</strong></summary>
 
+脚本把默认值当参数传给入口，命令行上追加的参数优先。只剩少数环境变量：
+
 | 变量 | 作用 | 默认值 |
 |:---|:---|:---|
-| `D3D_TARGET_MODEL` | 目标验证模型路径 / Hub ID | `Qwen/Qwen3-8B` |
-| `D3D_DRAFT_MODEL` | 草稿 checkpoint 路径 / Hub ID | `lingc8/D3D-1.7B-to-8B` |
-| `D3D_MAX_NEW_TOKENS` | 生成长度上限 | quick start 128；benchmark 2048 |
-| `D3D_BLOCK_SIZE` | 单请求草稿块大小 | 16 |
-| `D3D_ANCHOR_NUM` | 单请求与并发 1 时的 anchor 候选数 | 3 |
-| `D3D_CONCURRENT_ANCHOR_NUM` | 并发 > 1 时的 anchor 候选数 | 1 |
-| `D3D_CONCURRENCY` | 并发 quick start 的请求数 | 4 |
-| `D3D_PAGES` | 并发时每张卡的 KV page 数 | 512 |
+| `TARGET_MODEL` | 所有脚本使用的目标验证模型 | `Qwen/Qwen3-8B` |
+| `DRAFT_MODEL` | 所有脚本使用的草稿 checkpoint | `lingc8/D3D-1.7B-to-8B` |
+| `DATASETS` | 两个 benchmark 脚本的数据集列表 | 七个标准数据集 |
+| `CONCURRENCY` | quick start 的请求数，或并发 benchmark 的扫描列表 | `4` / `1 4 8 16` |
 | `D3D_DATA_CACHE` | 可选的本地 JSONL 数据集缓存 | `data_cache/` |
-| `D3D_BASELINE` | 是否先跑单卡 target-only AR baseline（`0` 关闭） | `1` |
+
+其余都是命令行参数，例如 `--max-samples`、`--max-new-tokens`、`--block-size`、
+`--anchor-num`、`--pages`、`--no-baseline`。
 
 单请求的完整参数用 `python single/eval_async_packed.py --help` 查看，并发用
 `python -m serving.bench --help`。
