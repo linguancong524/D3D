@@ -1,0 +1,23 @@
+# H20 开发 Pod 的 OSS 持久化入口。
+#
+# 该 StorageClass 挂载共享 fuse.ossfs 根目录，PVC 容量主要用于配额/用量声明；
+# 数据隔离由 dev-pod*.yaml 的固定 subPath（h20-dev/dev-pod1、h20-dev/dev-pod2）
+# 实现。禁止将 PVC 根目录直接挂载到 code-server 主容器，也不用于 .venv 或 JIT cache。
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sglang-dev-oss
+  namespace: bio-prod
+  labels:
+    app: sglang-dev
+    purpose: model-and-artifact-storage
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Filesystem
+  storageClassName: sais-staging-bio-prod
+  resources:
+    requests:
+      # OSS 后端不一定真正按此值限制，但仍应按预期使用量声明，
+      # 供 ResourceQuota 和管理侧统计。
+      storage: 200Gi

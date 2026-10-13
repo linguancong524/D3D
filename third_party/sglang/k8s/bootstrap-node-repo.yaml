@@ -1,0 +1,103 @@
+# 引导节点仓库一次性 Pod —— 在 60c 上建 /home/songtao/workspaces/sglang-speedup-nvidia
+#
+# 用途: 节点仓库尚未 clone 到 60c 时（dev-pod 的 hostPath type: Directory
+# 硬要求路径已存在，否则 dev-pod 卡 ContainerCreating），用本 Pod 把仓库
+# 搬上去。节点无需 GitHub 凭据、无需外网（镜像走 SWR，仓库走 git bundle
+# 经 kubectl cp 由 API Server 转入）。
+#
+# 用法:
+#   1) 本地 Mac: 打包 + 创建 Pod
+#        git bundle create /tmp/sglang-speedup-nvidia.bundle main
+#        kubectl apply -f k8s/bootstrap-node-repo.yaml
+#   2) 把 bundle 拷进 Pod（容器启动后一直在等，最长 60 分钟）
+#        kubectl cp /tmp/sglang-speedup-nvidia.bundle \
+#            bootstrap-node-repo:/bundle/sglang-speedup-nvidia.bundle
+#   3) 看日志，等到 "=== bootstrap 完成 ==="（STATUS 变 Succeeded）
+#        kubectl logs -f bootstrap-node-repo
+#   4) 再创建 dev-pod
+#        kubectl apply -f k8s/dev-pod.yaml
+#   5) 用完清理
+#        kubectl delete pod bootstrap-node-repo
+#
+# 说明:
+#   - 节点上若已是目录（如已通过 SSH 手动 clone），Pod 直接退出成功、什么都不做
+#   - 路径若是杂散文件/坏链接（60c 当前状态），会先改名备份为
+#     sglang-speedup-nvidia.stray.<时间戳>，再继续 clone（不删除原文件）
+#   - clone 后 origin 指向 GitHub；后续 dev-pod 里 git pull 需要节点上有
+#     仓库凭据（参考 60d 的做法；无凭据时可重复本 bundle 流程更新）
+#   - 不申请 GPU，纯 CPU 一次性任务
+apiVersion: v1
+kind: Pod
+metadata:
+  name: bootstrap-node-repo
+  labels:
+    app: bootstrap-node-repo
+spec:
+  restartPolicy: Never
+  # 与 dev-pod 同一节点；换节点时同步改
+  nodeName: e01-cn-c6k4blkz60c
+  tolerations:
+    - key: Ack-Pord-Gpu-H20
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.alibabacloud.com/lingjun
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: bootstrap
+      # 与 dev-pod 同款镜像：节点镜像缓存共享，dev-pod 在拉则本 Pod 复用
+      image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/nvidia/cuda:12.9.1-base-ubuntu22.04
+      imagePullPolicy: IfNotPresent
+      command:
+        - bash
+        - -c
+        - |
+          set -eux
+          export DEBIAN_FRONTEND=noninteractive
+          echo "=== bootstrap 启动 $(date) ==="
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+          apt-get clean && rm -rf /var/lib/apt/lists/*
+          mkdir -p /workspaces
+          if [ -d /workspaces/sglang-speedup-nvidia ]; then
+            echo ">> 节点上已存在目录 /workspaces/sglang-speedup-nvidia，无需处理"
+            exit 0
+          fi
+          if [ -e /workspaces/sglang-speedup-nvidia ] || [ -L /workspaces/sglang-speedup-nvidia ]; then
+            echo ">> 路径存在但不是目录（杂散文件/坏链接），先备份改名以免 dev-pod hostPath 校验失败："
+            ls -la /workspaces/
+            mv /workspaces/sglang-speedup-nvidia "/workspaces/sglang-speedup-nvidia.stray.$(date +%s)"
+          fi
+          echo ">>> 等待 bundle（本地执行: kubectl cp /tmp/sglang-speedup-nvidia.bundle bootstrap-node-repo:/bundle/sglang-speedup-nvidia.bundle）"
+          for i in $(seq 1 240); do
+            [ -f /bundle/sglang-speedup-nvidia.bundle ] && break
+            sleep 15
+          done
+          [ -f /bundle/sglang-speedup-nvidia.bundle ] || { echo "!! 60 分钟未收到 bundle"; exit 1; }
+          git bundle list-heads /bundle/sglang-speedup-nvidia.bundle
+          # 必须 -b main：git bundle create ... main 产出的 bundle 用裸 git clone
+          # 会报 "remote HEAD refers to nonexistent ref"（2.34/2.52 均复现）
+          git clone -b main /bundle/sglang-speedup-nvidia.bundle /workspaces/sglang-speedup-nvidia
+          cd /workspaces/sglang-speedup-nvidia
+          git remote set-url origin https://github.com/wintem0531/sglang-speedup-nvidia.git
+          git log --oneline -1
+          echo "=== bootstrap 完成: 60c 上 /home/songtao/workspaces/sglang-speedup-nvidia 就绪 ==="
+      resources:
+        requests:
+          cpu: "1"
+          memory: "1Gi"
+        limits:
+          cpu: "2"
+          memory: "2Gi"
+      volumeMounts:
+        - name: workspaces
+          mountPath: /workspaces
+        - name: bundle
+          mountPath: /bundle
+  volumes:
+    - name: workspaces
+      hostPath:
+        path: /home/songtao/workspaces
+        type: DirectoryOrCreate
+    - name: bundle
+      emptyDir: {}

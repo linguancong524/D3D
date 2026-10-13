@@ -1,0 +1,240 @@
+# H20 GPU 开发 Pod（二号）—— 与 dev-pod 同规格，用于并行开发或旧 pod 换代
+#
+# 用法（在 iZ 管理机上执行）:
+#   0) 确认共享 PVC 已就绪: kubectl get pvc -n bio-prod sglang-dev-oss  # 应为 Bound
+#   1) 创建 Pod:  kubectl apply -f k8s/dev-pod-2.yaml     # 启动装依赖，约 2~5 分钟
+#      kubectl logs -f -n bio-prod dev-pod-2                  # 等 "code-server 就绪"
+#   2) 仓库拷进容器（iZ 上先 git pull，再拷）:
+#      kubectl cp -n bio-prod sglang-speedup-nvidia dev-pod-2:/workspace/sglang-speedup-nvidia
+#   3) 容器终端一键构建 venv + 下载模型（约 10~40 分钟，视带宽）:
+#      cd /workspace/sglang-speedup-nvidia && MODEL_HF_ID=<HF 仓库 ID> bash k8s/pod-bootstrap.sh
+#   4) 端口转发（本机 8080 若被 dev-pod 占用，左边换 8081）:
+#      kubectl port-forward -n bio-prod pod/dev-pod-2 8081:8080
+#      浏览器 http://127.0.0.1:8081 ，密码 = 下方 env 的 CS_PASSWORD
+#   5) 用完删除:  kubectl delete pod -n bio-prod dev-pod-2  # 不删 PVC/subPath 数据
+#
+# 说明:
+#   - 与 k8s/dev-pod.yaml 完全同规格（同节点 60c、同镜像、同资源），仅改名 dev-pod-2
+#   - GPU：节点共 8 卡；dev-pod 占 4 张时本 pod 保持 4 张正好共存。
+#     若 Pending，先 nvidia-smi 看空闲卡数，按需改下方 nvidia.com/gpu（0=纯 CPU 开发）
+#   - 若本 pod 只是"换代"（旧 dev-pod 已删），名字可改回 dev-pod 直接复用原 yaml
+#   - 删旧 pod 前务必先归档日志: kubectl cp dev-pod:.../docs/perf/logs/*.log → iZ 仓库 → commit+push
+#   - /dev/shm：K8s pod 默认只有 64Mi tmpfs，多卡 NCCL 不够用：NCCL 2.29 的 P2P/IPC 传输
+#     要求每个 rank（每个进程）的 proxy 线程建一个 ~32.6 MiB（34210176 B）共享内存段
+#     （/dev/shm/nccl-*），tp=4 合计 ~131 MiB → 默认尺寸直接报
+#     "failed to extend /dev/shm/nccl-... No space left on device (28)"
+#     → "RuntimeError: NCCL error: unhandled system error"（2026-08-31 H20 one_batch tp4 首遇）。
+#     故挂 8Gi emptyDir(Memory)（见下方 volumes 的 dshm）；PyTorch DataLoader 同样受益。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dev-pod-2
+  namespace: bio-prod
+  labels:
+    app: dev-pod-2
+spec:
+  restartPolicy: Never
+  # code-server 不需要访问 Kubernetes API，避免默认 ServiceAccount token 暴露。
+  automountServiceAccountToken: false
+  # 与冒烟测试同一节点；删掉本行可调度到任意带该 toleration 的 H20 节点
+  # 2026-08-26: 迁到 60c（管理员已升级该节点驱动，见上方驱动要求）
+  nodeName: e01-cn-c6k4blkz60c
+  tolerations:
+    - key: Ack-Pord-Gpu-H20
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.alibabacloud.com/lingjun
+      operator: Exists
+      effect: NoSchedule
+  # 与 dev-pod 使用同一 PVC，但固定隔离到 h20-dev/dev-pod2 专属目录。
+  initContainers:
+    - name: init-oss-subpaths
+      image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/busybox:1.36.1
+      imagePullPolicy: IfNotPresent
+      env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OSS_SUBPATH
+          value: h20-dev/dev-pod2
+      command:
+        - sh
+        - -c
+        - |
+          set -eux
+          project_root="/oss-root/${OSS_SUBPATH}"
+          owner_file="${project_root}/.owner"
+
+          echo "=== 初始化 OSS subPath ==="
+          echo "Pod: ${POD_NAME}"
+          echo "SubPath: ${OSS_SUBPATH}"
+          echo "Target: ${project_root}"
+
+          if [ -d "${project_root}" ] && [ ! -f "${owner_file}" ]; then
+            existing_content="$(ls -A "${project_root}" 2>/dev/null || true)"
+            if [ -n "${existing_content}" ]; then
+              echo "ERROR: 目标目录已存在且非空，但没有 .owner 标记: ${project_root}"
+              ls -la "${project_root}"
+              exit 1
+            fi
+          fi
+
+          mkdir -p "${project_root}/models"
+          mkdir -p "${project_root}/persist/perf"
+          mkdir -p "${project_root}/persist/checkpoints"
+          mkdir -p "${project_root}/persist/artifacts"
+
+          if [ -f "${owner_file}" ]; then
+            grep -qx "project=sglang-speedup-nvidia" "${owner_file}"
+            grep -qx "owner=songtao" "${owner_file}"
+            grep -qx "pod=${POD_NAME}" "${owner_file}"
+            grep -qx "subpath=${OSS_SUBPATH}" "${owner_file}"
+          else
+            {
+              echo "project=sglang-speedup-nvidia"
+              echo "owner=songtao"
+              echo "pod=${POD_NAME}"
+              echo "subpath=${OSS_SUBPATH}"
+              echo "created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > "${owner_file}"
+          fi
+
+          chmod 0700 "${project_root}" "${project_root}/models" "${project_root}/persist" || true
+          echo "=== OSS subPath 初始化完成 ==="
+          cat "${owner_file}"
+          find "${project_root}" -maxdepth 2 -type d -print
+      volumeMounts:
+        - name: oss-persist
+          mountPath: /oss-root
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "500m"
+          memory: "256Mi"
+  containers:
+    - name: dev
+      image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/nvidia/cuda:13.0.0-devel-ubuntu22.04
+      # 若 SWR 无此 tag（ImagePullBackOff）：依次换 13.0.1-devel-ubuntu22.04 / 13.1.0-devel-ubuntu22.04
+      #（三个 tag 均已在 docker.io 验证存在；可先用 kubectl run 小 pod 试拉，成功即缓存到节点）
+      imagePullPolicy: IfNotPresent
+      ports:
+        - name: code-server
+          containerPort: 8080
+      env:
+        # code-server 登录密码，按需修改（仅通过本机 port-forward 访问，风险可控；
+        # 若之后挂 Service/Ingress 暴露，务必改成强密码）
+        - name: CS_PASSWORD
+          value: "sglang-dev-2026"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OSS_SUBPATH
+          value: h20-dev/dev-pod2
+      volumeMounts:
+        # /dev/shm 扩容（原因见头部说明：K8s 默认 64Mi，NCCL 多 rank 不够）
+        - name: dshm
+          mountPath: /dev/shm
+        - name: oss-persist
+          mountPath: /workspace/models
+          subPathExpr: "$(OSS_SUBPATH)/models"
+        - name: oss-persist
+          mountPath: /workspace/persist
+          subPathExpr: "$(OSS_SUBPATH)/persist"
+      workingDir: /workspace
+      command:
+        - bash
+        - -c
+        - |
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          echo "=== dev-pod 启动自检 $(date) ==="
+          hostname
+          echo "=== /dev/nvidia* ==="
+          ls -l /dev/nvidia* 2>&1 || true
+          echo "=== nvidia-smi ==="
+          nvidia-smi || echo "!! nvidia-smi FAILED — 检查 GPU 设备插件"
+          nvidia-smi --query-gpu=index,name,memory.total,driver_version,compute_cap --format=csv || true
+          echo "=== /dev/shm（应为 8Gi；NCCL 多 rank 需要，见 volumes dshm 注释）==="
+          df -h /dev/shm
+          echo ""
+          # 1) apt 换阿里云源加速（换不掉也不致命，继续用原源）
+          sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g; s|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null || true
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            git curl ca-certificates build-essential \
+            python3 python3-venv python3-pip \
+            openssh-client vim less iproute2
+          apt-get clean && rm -rf /var/lib/apt/lists/*
+          # 2) Node.js 20（npmmirror 二进制镜像）
+          NODE_VER=v20.18.0
+          curl -fsSL "https://registry.npmmirror.com/-/binary/node/${NODE_VER}/node-${NODE_VER}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+          tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
+          rm -f /tmp/node.tar.xz
+          node --version && npm --version
+          # 3) code-server 4.134.0 官方 standalone 包（约 235MB）
+          #    来源优先级: /workspace/k8s/ 预置 tar 包（可提前 kubectl cp）→ gh-proxy.com → GitHub 直连
+          CS_VER=4.134.0
+          CS_TARBALL=code-server-${CS_VER}-linux-amd64.tar.gz
+          dl_ok=0
+          if [ -f "/workspace/k8s/${CS_TARBALL}" ]; then
+            echo ">>> 使用预置 tar 包: /workspace/k8s/${CS_TARBALL}"
+            cp "/workspace/k8s/${CS_TARBALL}" /tmp/cs.tar.gz
+            dl_ok=1
+          else
+            for base in \
+              "https://gh-proxy.com/https://github.com/coder/code-server/releases/download/v${CS_VER}" \
+              "https://github.com/coder/code-server/releases/download/v${CS_VER}"; do
+              echo ">>> 下载 ${base}/${CS_TARBALL}"
+              if curl -fSL --connect-timeout 15 --max-time 900 --retry 1 --retry-delay 5 "${base}/${CS_TARBALL}" -o /tmp/cs.tar.gz; then
+                dl_ok=1
+                break
+              fi
+              echo "!! 该源失败，尝试下一个"
+              rm -f /tmp/cs.tar.gz
+            done
+          fi
+          [ "${dl_ok}" = "1" ] || { echo "!! code-server 获取失败：所有下载源均失败（可提前把 ${CS_TARBALL} kubectl cp 到 /workspace/k8s/ 后重建 Pod）"; exit 1; }
+          mkdir -p /opt/code-server
+          tar -xzf /tmp/cs.tar.gz -C /opt/code-server --strip-components=1
+          rm -f /tmp/cs.tar.gz
+          ln -sf /opt/code-server/bin/code-server /usr/local/bin/code-server
+          code-server --version
+          # 4) code-server 配置（/workspace 为容器内普通目录，无 hostPath）
+          mkdir -p /workspace /root/.config/code-server
+          cat > /root/.config/code-server/config.yaml <<EOF
+          bind-addr: 0.0.0.0:8080
+          auth: password
+          password: ${CS_PASSWORD}
+          cert: false
+          EOF
+          echo "============================================================"
+          echo " code-server 就绪: http://127.0.0.1:8080"
+          echo " 端口转发: kubectl port-forward -n bio-prod pod/dev-pod-2 8081:8080"
+          echo " 密码: ${CS_PASSWORD}"
+          echo " 下一步: 从 iZ 拷仓库进 /workspace/ 后传 MODEL_HF_ID 运行 k8s/pod-bootstrap.sh"
+          echo "============================================================"
+          exec code-server /workspace
+      resources:
+        requests:
+          cpu: "8"
+          memory: "32Gi"
+        limits:
+          cpu: "32"
+          memory: "128Gi"
+          # 节点共 8 卡；60c 空闲卡数未实测（60d 2026-08-26 实测 5 张）；按需修改：
+          # 0=纯 CPU 开发，1~8=按空闲卡数；若 Pending 先 nvidia-smi 看空闲卡
+          nvidia.com/gpu: 4
+  volumes:
+    # /dev/shm 扩容 8Gi：NCCL 2.29 P2P/IPC 每 rank ~32.6 MiB proxy 共享内存段
+    # （tp=4 合计 ~131 MiB）+ PyTorch DataLoader 余量；K8s pod 默认仅 64Mi
+    - name: dshm
+      emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+    - name: oss-persist
+      persistentVolumeClaim:
+        claimName: sglang-dev-oss

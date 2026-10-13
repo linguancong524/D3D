@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "d3d-decoding"
+version = "0.1.0"
+description = "D3D: Decoupled Diffusion Drafting for Asynchronous Speculative Decoding"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = []
+
+[project.entry-points."sglang.srt.plugins"]
+d3d_strict = "d3d_sglang.plugin:register"
+
+[project.urls]
+Homepage = "https://github.com/linguancong524/D3D"
+Repository = "https://github.com/linguancong524/D3D"
+# Paper = "https://openreview.net/forum?id=owCZMqNsqR"
+Models = "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"
+
+[tool.setuptools.packages.find]
+include = ["single*", "serving*", "models*", "common*", "d3d_sglang*"]
+namespaces = true
+
+[tool.setuptools.package-data]
+serving = ["vendor/SSD_LICENSE", "vendor/UPSTREAM.md"]
+"models.d3d" = ["APACHE_LICENSE"]

@@ -1,0 +1,63 @@
+# dev-pod-2 的 Ingress 入口 —— 与 dev-pod-ingress.yaml 同构（同 nginx 控制器、同 NLB）
+#
+# 前置: 集群 Ingress 控制器已就绪（dev-pod-ingress.yaml 已在使用，无需再查）
+#
+# 用法:
+#   1) 先加 DNS 记录（你管理的 yanhuang.ai4s.com.cn 解析设置里，与 dev-cs-9f2k 同款）:
+#        记录类型 CNAME  主机记录 dev-cs2-7m3q  记录值 = 生产域名的现有目标
+#        （即 dig +short yanhuang.ai4s.com.cn 的结果，通常是 nlb-*.aliyuncsslb.com，
+#          与 dev-cs-9f2k 那条完全相同）
+#      生效后完整域名为 dev-cs2-7m3q.yanhuang.ai4s.com.cn
+#   2) kubectl apply -f k8s/dev-pod-2-ingress.yaml
+#   3) kubectl get ingress dev-pod-2      # ADDRESS 应显示生产同款 NLB 地址
+#   4) 浏览器打开 http://dev-cs2-7m3q.yanhuang.ai4s.com.cn/   （密码 sglang-dev-2026）
+#   5) 删除: kubectl delete -f k8s/dev-pod-2-ingress.yaml（DNS 记录可留可删）
+#
+# 安全设计: 同 dev-pod-ingress.yaml —— 精确 host 匹配（无 catch-all）、
+#   随机尾巴防扫描、可选 IP 白名单、code-server 密码登录。
+#   两个 Ingress host 互不影响；生产 yanhuang.ai4s.com.cn 路由也不受影响。
+apiVersion: v1
+kind: Service
+metadata:
+  name: dev-pod-2
+  namespace: bio-prod
+  labels:
+    app: dev-pod-2
+spec:
+  selector:
+    app: dev-pod-2
+  ports:
+    - name: code-server
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: dev-pod-2
+  namespace: bio-prod
+  labels:
+    app: dev-pod-2
+  annotations:
+    # nginx Ingress: code-server 的 WebSocket/终端长连接，防 60s 默认超时断流
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # 【推荐启用】IP 白名单: 只放行你的出口 IP，其余来源直接 403
+    #   查你的出口 IP: 在 Mac 上执行  curl ifconfig.me
+    #   多个 IP/网段用英文逗号分隔，如 "203.0.113.7/32,198.51.100.0/24"
+    #   注意: 走 VPN 时出口 IP 会变，按 VPN 出口填或保持注释
+    # nginx.ingress.kubernetes.io/whitelist-source-range: "203.0.113.7/32"
+spec:
+  ingressClassName: nginx
+  rules:
+    # 与 DNS 记录保持一致
+    - host: dev-cs2-7m3q.yanhuang.ai4s.com.cn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: dev-pod-2
+                port:
+                  number: 8080

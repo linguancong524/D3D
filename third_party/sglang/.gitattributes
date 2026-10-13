@@ -1,0 +1,6 @@
+# Keep the current Hybrid evidence inspectable without overwhelming code review.
+docs/perf/results/h800-math-graph-20261013/** linguist-generated=true
+docs/perf/results/h800-math-natural-eos-20261013/** linguist-generated=true
+docs/perf/logs/h800_math*20261013.log linguist-generated=true
+docs/perf/logs/h800_hybrid_pr*20261013.log linguist-generated=true
+docs/perf/logs/h800-math*20261013_packaging_validation.log linguist-generated=true

@@ -1,0 +1,61 @@
+# H20 远程 GPU 环境 —— 冒烟测试 Pod（8 卡）
+#
+# 用法:
+#   kubectl apply -f k8s/h20-gpu-test.yaml          # 创建 Pod
+#   kubectl get pod gpu-test -o wide                # 看调度/节点状态（Pending 则 kubectl describe pod gpu-test）
+#   kubectl logs gpu-test                           # 看启动时的 GPU 自检输出
+#   kubectl exec -it gpu-test -- bash               # 进入容器交互
+#   kubectl delete pod gpu-test                     # 用完删除
+#
+# 说明:
+#   - 容器启动时先打印 nvidia-smi 等诊断信息（kubectl logs 可见），
+#     然后 sleep infinity 保持存活，随时可 kubectl exec 进入。
+#   - 之前 "kubectl run + nvidia-smi && sleep 30" 没输出，是因为 kubectl run
+#     本身不转发容器 stdout，且 30s 后容器就退出了，日志窗口很短。
+#   - 2026-08-26 起用于验证 60c 驱动升级：kubectl logs 打印的
+#     driver_version 应为 ≥580.x（可用 CUDA 13 运行时，prefill BCG 图捕获解锁）。
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-test
+  labels:
+    app: gpu-test
+spec:
+  restartPolicy: Never
+  # 固定调度节点；若该节点不存在/不可用，Pod 会一直 Pending
+  # 2026-08-26: 迁到 60c（管理员已升级该节点驱动，自检输出可确认
+  # driver_version，期望 ≥580.x）
+  nodeName: e01-cn-c6k4blkz60c
+  tolerations:
+    - key: Ack-Pord-Gpu-H20
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.alibabacloud.com/lingjun
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: gpu-test
+      image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/nvidia/cuda:12.4.1-base-ubuntu22.04
+      imagePullPolicy: IfNotPresent
+      command:
+        - bash
+        - -c
+        - |
+          set -x
+          echo "=== pod hostname ==="
+          hostname
+          echo "=== /dev/nvidia* ==="
+          ls -l /dev/nvidia* 2>&1
+          echo "=== nvidia-smi ==="
+          nvidia-smi || echo "!! nvidia-smi FAILED (exit $?) — 检查 GPU 设备插件"
+          echo "=== gpu summary (csv) ==="
+          nvidia-smi --query-gpu=index,name,memory.total,driver_version,compute_cap \
+            --format=csv 2>&1 || true
+          echo ""
+          echo "=== GPU 自检完成，容器保持存活，可 kubectl exec -it gpu-test -- bash ==="
+          exec sleep infinity
+      resources:
+        limits:
+          # 节点共 8 卡；60c 空闲卡数未实测（60d 2026-08-26 实测 5 张），按需修改。
+          # 需要全部空闲卡时调回 8；冒烟测试 1 张即可。
+          nvidia.com/gpu: 5

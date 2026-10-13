@@ -1,0 +1,45 @@
+# 可选优化：把 dev 依赖预打进镜像的 Dockerfile（Pod 秒级启动，免运行时安装）
+#
+# 构建 & 推送（在任意有 docker/podman 的机器上，需能访问 SWR、npmmirror 与
+# code-server 下载地址，见下方 CODE_SERVER_URL；国内构建机可换成 gh-proxy 加速）:
+#   cd k8s
+#   docker build -f Dockerfile.dev -t <你的镜像仓库>/sglang/h20-dev:latest .
+#   docker push <你的镜像仓库>/sglang/h20-dev:latest
+#
+# 然后把 dev-pod.yaml 里的 image 换成上面的地址，并把 command 整段删掉、
+# 改回默认的（或显式写）:
+#   command: ["code-server", "--bind-addr", "0.0.0.0:8080", "/workspace"]
+#
+# 注意: 基镜像是 nvidia/cuda:12.9.1-base —— 只有 CUDA 运行时，没有 nvcc；
+# 需要完整 CUDA toolkit 时把 FROM 的 tag 换成 12.9.1-devel-ubuntu22.04（SWR 已验证存在）。
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/nvidia/cuda:12.9.1-base-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    NODE_VER=v20.18.0 \
+    NPM_CONFIG_REGISTRY=https://registry.npmmirror.com \
+    CODE_SERVER_VER=4.134.0 \
+    # code-server 官方 standalone 包（不走 npm：root 下 postinstall 要求 --unsafe-perm，
+    # 且下载源不可控）。国内构建机把下行换成 gh-proxy 加速，例如:
+    #   https://gh-proxy.com/https://github.com/coder/code-server/releases/download/v4.134.0/code-server-4.134.0-linux-amd64.tar.gz
+    CODE_SERVER_URL=https://github.com/coder/code-server/releases/download/v4.134.0/code-server-4.134.0-linux-amd64.tar.gz
+
+# apt 换阿里云源 + 基础开发工具 + Node 20 + code-server（standalone 包解压到 /opt）
+RUN sed -i 's|http://archive.ubuntu.com|http://mirrors.aliyun.com|g; s|http://security.ubuntu.com|http://mirrors.aliyun.com|g' /etc/apt/sources.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      git curl ca-certificates build-essential \
+      python3 python3-venv python3-pip \
+      openssh-client vim less iproute2 \
+ && curl -fsSL "https://registry.npmmirror.com/-/binary/node/${NODE_VER}/node-${NODE_VER}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+ && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
+ && rm -f /tmp/node.tar.xz \
+ && curl -fsSL --retry 3 "${CODE_SERVER_URL}" -o /tmp/cs.tar.gz \
+ && mkdir -p /opt/code-server \
+ && tar -xzf /tmp/cs.tar.gz -C /opt/code-server --strip-components=1 \
+ && rm -f /tmp/cs.tar.gz \
+ && ln -sf /opt/code-server/bin/code-server /usr/local/bin/code-server \
+ && code-server --version \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 8080
+CMD ["code-server", "--bind-addr", "0.0.0.0:8080", "/workspace"]
