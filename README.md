@@ -95,6 +95,27 @@ Install PyTorch before building FlashAttention. A matching prebuilt wheel can
 be used instead; source builds need a CUDA toolkit, a C++ compiler, and
 sufficient host memory. The concurrent backend requires FlashAttention.
 
+### Optional: strict two-GPU SGLang backend
+
+This backend keeps Target on GPU 0 and Draft on GPU 1. It uses CUDA Graphs and
+defaults to one anchor; it does not use a Target-local Draft fallback.
+
+```bash
+bash scripts/sglang/install.sh
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export TARGET_GPU=0 DRAFT_GPU=1
+```
+
+In two terminals, start Draft first and then Target:
+
+```bash
+bash scripts/sglang/launch.sh draft
+bash scripts/sglang/launch.sh remote
+```
+
+See [the SGLang guide](docs/sglang-backend.md) for model paths and options.
+
 <a id="quick-start"></a>
 
 ## 🚀 Quick Start

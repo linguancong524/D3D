@@ -92,6 +92,27 @@ pip install -e . --no-deps
 源码编译需要 CUDA toolkit、C++ 编译器以及足够的主机内存。并发后端依赖
 FlashAttention。
 
+### 可选：严格双卡 SGLang 后端
+
+该后端将 Target 固定在 GPU 0、Draft 固定在 GPU 1，启用 CUDA Graph，默认使用
+一个 anchor；不会回退到 Target 本地 Draft。
+
+```bash
+bash scripts/sglang/install.sh
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export TARGET_GPU=0 DRAFT_GPU=1
+```
+
+在两个终端中先启动 Draft，再启动 Target：
+
+```bash
+bash scripts/sglang/launch.sh draft
+bash scripts/sglang/launch.sh remote
+```
+
+模型路径和其他选项见 [SGLang 部署说明](docs/sglang-backend.md)。
+
 <a id="quick-start"></a>
 
 ## 🚀 快速开始
