@@ -1,0 +1,14 @@
+{
+  "title": "D3D",
+  "namespace": "lingc8",
+  "slug": "lingc8/d3d-6acc999de5b699dcf37b3c75",
+  "url": "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75",
+  "models": [
+    "lingc8/D3D-1.7B-to-8B",
+    "lingc8/D3D-1.7B-to-32B",
+    "lingc8/D3D-8B-to-8B",
+    "lingc8/D3D-8B-to-32B",
+    "lingc8/D3D-24D-p1.7B-to-32B",
+    "lingc8/D3D-31D-p8B-to-8B"
+  ]
+}
