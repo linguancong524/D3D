@@ -173,37 +173,6 @@ bash scripts/benchmark_concurrent.sh
 `datasets`。来源、split、token 上限、计时边界与上报规则见
 [benchmark 协议](benchmarks/README.md)。
 
-## 📈 一次运行会报告什么
-
-每次 quick start 与 benchmark 都会写出 summary。两者都会先测 **baseline**：
-目标模型单独在一张 GPU 上做自回归解码，prompt、token 上限、贪心设置与并发
-度都与随后的 D3D 运行一致。
-
-summary 的头两个指标是：
-
-| 指标 | 含义 |
-|:---|:---|
-| `speedup` | D3D tokens/s ÷ baseline tokens/s，两侧使用同一条计时边界 |
-| `accept_length` | 每个 verify step 平均提交的 token 数（被接受的草稿 token + 目标 token） |
-
-summary 还包含原始吞吐（`d3d_tps` 与 `baseline_tps`）、有评分器时的数据集
-准确率，以及完整的 timing / acceptance 明细：
-
-- 单请求：quick start 写在 `outputs/single/summary.json`，benchmark 写在
-  `outputs/benchmark/<dataset>.summary.json`，位于其中的 `headline` 块；
-- 并发：benchmark 为每个并发度单独起一次进程，因此每个并发度写自己的 JSON
-  （`outputs/concurrent/benchmark_c1.json`、`_c4.json` …）；每个 cell 带
-  `baseline_tps`、`speedup`、`accept_length` 与 `anchor_num`，顶层 `summary`
-  列表按数据集汇总。
-
-单请求走 Transformers 后端，并发走 SSD（paged KV）后端。`speedup` 两侧始终
-共用同一条计时边界：单请求比较 decode-only TPS（排除 prefill 以及 prefill
-产生的第一个目标 token），并发比较端到端 TPS（包含 prefill、admission、
-decode 与 drain）。两种边界不可直接比较。
-
-脚本设 `D3D_BASELINE=0`、或 Python 入口加 `--no-baseline` 可以跳过 baseline；
-此时 `speedup` 留空，D3D 运行本身不变。
-
 ## 🗂️ 仓库结构
 
 ```text

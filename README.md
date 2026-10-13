@@ -178,41 +178,6 @@ LiveCodeBench v6 uses `test6.jsonl` from
 See the [benchmark protocol](benchmarks/README.md) for sources, splits,
 token caps, timing boundaries, and reporting rules.
 
-## 📈 What a run reports
-
-Every quick start and every benchmark writes a summary. Both first measure the
-**baseline**: the target model alone, autoregressive, on one GPU, with the same
-prompts, token cap, greedy settings, and concurrency as the D3D run.
-
-The summary headline is these two metrics:
-
-| Metric | Meaning |
-|:---|:---|
-| `speedup` | D3D tokens/s ÷ baseline tokens/s, measured on the same timing boundary for both sides |
-| `accept_length` | Mean tokens committed per verify step (accepted draft tokens plus the target token) |
-
-It also carries the raw throughput numbers (`d3d_tps` and `baseline_tps`),
-dataset accuracy where a scorer exists, and the full timing/acceptance
-breakdown:
-
-- single request: `headline` block in `outputs/single/summary.json` for the
-  quick start and in `outputs/benchmark/<dataset>.summary.json` for the
-  benchmark;
-- concurrent: the benchmark runs one process per concurrency, so each
-  concurrency writes its own JSON (`outputs/concurrent/benchmark_c1.json`,
-  `_c4.json`, …); every cell carries `baseline_tps`, `speedup`, `accept_length`
-  and `anchor_num`, and the top-level `summary` list collects them per dataset.
-
-Single-request runs decode on the Transformers backend, while concurrent runs
-use the SSD paged-KV backend. Both sides of `speedup` always share the same
-timing boundary: single-request runs compare decode-only TPS (prefill and the
-prefill-emitted first target token excluded), while concurrent runs compare
-end-to-end TPS (prefill, admission, decode, and drain included). The two
-boundaries are not comparable.
-
-Set `D3D_BASELINE=0` (scripts) or `--no-baseline` (Python entry points) to skip
-the baseline. `speedup` is then left empty and the D3D run itself is unchanged.
-
 ## 🗂️ Repository Guide
 
 ```text
