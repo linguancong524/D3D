@@ -203,21 +203,28 @@ bash scripts/sglang/install.sh
 export TARGET_MODEL=Qwen/Qwen3-8B
 export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 export TARGET_GPU=0 DRAFT_GPU=1
+export MAX_RUNNING_REQUESTS=1
 bash scripts/sglang/launch.sh draft   # 终端 1
 bash scripts/sglang/launch.sh remote  # 终端 2
 ```
 
-然后在第三个终端运行一个会自动下载数据集的 MATH-500 示例：
+然后在第三个终端运行 MATH-500 评测：
 
 ```bash
+export MAX_RUNNING_REQUESTS=1
+export TARGET_MODEL=Qwen/Qwen3-8B
 .venv-sglang/bin/python scripts/sglang/benchmark.py \
   --dataset math500 \
   --tokenizer "$TARGET_MODEL" \
-  --samples 1 --repetitions 1 --max-new-tokens 128 \
+  --samples "$MAX_RUNNING_REQUESTS" --concurrency "$MAX_RUNNING_REQUESTS" \
+  --repetitions 1 --max-new-tokens 128 \
   --output outputs/sglang/example.json
 ```
 
 数据集会自动下载，并由 Hugging Face Datasets 缓存。
+
+在三个终端中将 `MAX_RUNNING_REQUESTS` 统一设为 `1`、`4`、`8` 或 `16`；
+修改后需重启 Draft 和 Target。
 
 ## 🗂️ 仓库结构
 

@@ -1,4 +1,5 @@
 import argparse
+import concurrent.futures
 import hashlib
 import json
 import random
@@ -22,9 +23,12 @@ def call(base_url, endpoint, payload=None):
         return json.load(response)
 
 
-def summarize(rows):
+def summarize(rows, elapsed_seconds=None):
     total_tokens = sum(row["output_tokens"] for row in rows)
-    total_seconds = sum(row["elapsed_seconds"] for row in rows)
+    total_seconds = (
+        elapsed_seconds if elapsed_seconds is not None
+        else sum(row["elapsed_seconds"] for row in rows)
+    )
     total_verifies = sum(row["meta_info"].get("spec_verify_ct", 0) for row in rows)
     decode_tokens = sum(max(0, row["output_tokens"] - 1) for row in rows)
     return {
@@ -44,6 +48,21 @@ def summarize(rows):
     }
 
 
+def generate_row(base_url, index, tokens, sampling, repetition):
+    started = time.perf_counter()
+    result = call(base_url, "/generate", {
+        "input_ids": tokens, "sampling_params": sampling,
+    })
+    return {
+        "source_index": index, "repetition": repetition,
+        "input_ids": tokens, "text": result["text"],
+        "output_ids": result.get("output_ids"),
+        "output_tokens": result["meta_info"]["completion_tokens"],
+        "elapsed_seconds": time.perf_counter() - started,
+        "meta_info": result["meta_info"],
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:30000")
@@ -53,12 +72,15 @@ def main():
     )
     parser.add_argument("--tokenizer", required=True)
     parser.add_argument("--samples", type=int, default=8)
+    parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--seed", type=int, default=20261013)
     parser.add_argument("--output", required=True)
     parser.add_argument("--baseline")
     args = parser.parse_args()
+    if args.samples < 1 or args.repetitions < 1 or args.concurrency < 1:
+        parser.error("samples, repetitions and concurrency must be positive")
     from transformers import AutoTokenizer
 
     output = Path(args.output)
@@ -97,27 +119,24 @@ def main():
     }
     call(args.url, "/generate", {"input_ids": prompts[-1], "sampling_params": sampling})
     rows = []
-    for repetition in range(args.repetitions):
-        for index, tokens in zip(indices[:-1], prompts[:-1]):
-            started = time.perf_counter()
-            result = call(args.url, "/generate", {
-                "input_ids": tokens, "sampling_params": sampling,
-            })
-            elapsed = time.perf_counter() - started
-            rows.append({
-                "source_index": index, "repetition": repetition,
-                "input_ids": tokens, "text": result["text"],
-                "output_ids": result.get("output_ids"),
-                "output_tokens": result["meta_info"]["completion_tokens"],
-                "elapsed_seconds": elapsed, "meta_info": result["meta_info"],
-            })
-            print(f"request {len(rows)}: {rows[-1]['output_tokens']} tokens / {elapsed:.3f}s", flush=True)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
+        started = time.perf_counter()
+        for repetition in range(args.repetitions):
+            futures = [executor.submit(
+                generate_row, args.url, index, tokens, sampling, repetition,
+            ) for index, tokens in zip(indices[:-1], prompts[:-1])]
+            for future in futures:
+                row = future.result()
+                rows.append(row)
+                print(f"request {len(rows)}: {row['output_tokens']} tokens / "
+                      f"{row['elapsed_seconds']:.3f}s", flush=True)
+        elapsed = time.perf_counter() - started
     report = {
         "configuration": vars(args),
         "dataset_sha256": hashlib.sha256(source).hexdigest(),
         "indices": indices[:-1], "warmup_index": indices[-1],
         "sampling_params": sampling, "rows": rows,
-        "summary": summarize(rows),
+        "summary": summarize(rows, elapsed),
     }
     if args.baseline:
         reference = json.loads(Path(args.baseline).read_text())
@@ -126,6 +145,7 @@ def main():
             or reference["dataset_sha256"] != report["dataset_sha256"]
             or reference["sampling_params"] != sampling
             or len(reference["rows"]) != len(rows)
+            or reference["configuration"].get("concurrency", 1) != args.concurrency
             or any(left["input_ids"] != right["input_ids"]
                    for left, right in zip(reference["rows"], rows))
         ):

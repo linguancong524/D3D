@@ -148,6 +148,7 @@ def main():
     parser.add_argument("--no-speculate", action="store_true")
     parser.add_argument("--cuda-graph", action="store_true")
     parser.add_argument("--packed-graph-max-tokens", type=int)
+    parser.add_argument("--packed-graph-max-requests", type=int, default=1)
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--metrics-file")
     args = parser.parse_args()
@@ -168,7 +169,7 @@ def main():
             batched_branch_topk=True, packed_causal_pending=True,
             branch_group_size=max(1, args.anchors),
             deterministic=args.deterministic,
-            packed_cuda_graph_max_requests=1,
+            packed_cuda_graph_max_requests=args.packed_graph_max_requests,
             packed_cuda_graph_max_tokens=(
                 args.packed_graph_max_tokens
                 or max(1024, 1 << (args.max_branches * args.block_size

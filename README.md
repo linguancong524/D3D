@@ -210,21 +210,28 @@ Run Draft on GPU 1 first, then Target on GPU 0:
 export TARGET_MODEL=Qwen/Qwen3-8B
 export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 export TARGET_GPU=0 DRAFT_GPU=1
+export MAX_RUNNING_REQUESTS=1
 bash scripts/sglang/launch.sh draft   # terminal 1
 bash scripts/sglang/launch.sh remote  # terminal 2
 ```
 
-Then run one automatically downloaded MATH-500 example from a third terminal:
+Then run a MATH-500 evaluation from a third terminal:
 
 ```bash
+export MAX_RUNNING_REQUESTS=1
+export TARGET_MODEL=Qwen/Qwen3-8B
 .venv-sglang/bin/python scripts/sglang/benchmark.py \
   --dataset math500 \
   --tokenizer "$TARGET_MODEL" \
-  --samples 1 --repetitions 1 --max-new-tokens 128 \
+  --samples "$MAX_RUNNING_REQUESTS" --concurrency "$MAX_RUNNING_REQUESTS" \
+  --repetitions 1 --max-new-tokens 128 \
   --output outputs/sglang/example.json
 ```
 
 The dataset is downloaded automatically and cached by Hugging Face Datasets.
+
+Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` in all three terminals;
+restart Draft and Target after changing it.
 
 ## 🗂️ Repository Guide
 

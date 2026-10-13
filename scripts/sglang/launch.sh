@@ -22,7 +22,8 @@ if [[ "$MODE" == "draft" ]]; then
   exec "$PYTHON_BIN" -m d3d_sglang.service \
     --model "$DRAFT_MODEL" --tokenizer "$TARGET_MODEL" --endpoint "$ENDPOINT" \
     --block-size "${BLOCK_SIZE:-16}" --anchors "${ANCHORS:-1}" \
-    --max-branches "${MAX_BRANCHES:-$(( ${BLOCK_SIZE:-16} * ${ANCHORS:-1} ))}" "${DRAFT_EXTRA[@]}" "$@"
+    --max-branches "${MAX_BRANCHES:-$(( ${BLOCK_SIZE:-16} * ${ANCHORS:-1} ))}" \
+    --packed-graph-max-requests "${MAX_RUNNING_REQUESTS:-1}" "${DRAFT_EXTRA[@]}" "$@"
 fi
 if [[ "$MODE" != "remote" && "$MODE" != "ar" ]]; then
   echo "Usage: $0 {draft|remote|ar} [arguments]" >&2
@@ -40,8 +41,9 @@ if [[ "$MODE" == "remote" ]]; then
 fi
 exec "$PYTHON_BIN" -m sglang.launch_server \
   --model-path "$TARGET_MODEL" --host 127.0.0.1 --port "${TARGET_PORT:-30000}" \
-  --dtype bfloat16 --tp-size 1 --context-length 8192 --max-running-requests 1 \
+  --dtype bfloat16 --tp-size 1 --context-length 8192 \
+  --max-running-requests "${MAX_RUNNING_REQUESTS:-1}" \
   --mem-fraction-static 0.7 --attention-backend fa3 \
   --cuda-graph-backend-prefill disabled \
-  --disable-radix-cache --cuda-graph-max-bs-decode 1 \
+  --disable-radix-cache --cuda-graph-max-bs-decode "${CUDA_GRAPH_MAX_BS_DECODE:-${MAX_RUNNING_REQUESTS:-1}}" \
   "${EXTRA[@]}" "$@"
