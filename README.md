@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://openreview.net/forum?id=owCZMqNsqR"><img src="https://img.shields.io/badge/Paper-OpenReview-6366f1?style=flat-square" alt="Paper"></a>
+  <!-- <a href="https://openreview.net/forum?id=owCZMqNsqR"><img src="https://img.shields.io/badge/Paper-OpenReview-6366f1?style=flat-square" alt="Paper"></a> -->
   <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"><img src="https://img.shields.io/badge/Models-D3D_Collection-fbbf24?style=flat-square" alt="D3D model collection"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-Get_started-22c55e?style=flat-square" alt="Quick start"></a>
   <a href="docs/architecture.md"><img src="https://img.shields.io/badge/Architecture-Docs-0ea5e9?style=flat-square" alt="Architecture guide"></a>
@@ -228,8 +228,8 @@ tests/        Model-loading, release, and metric-accounting checks
 
 ## Citation & License
 
-If D3D is useful in your research, please cite the
-[paper](https://openreview.net/forum?id=owCZMqNsqR).
+<!-- If D3D is useful in your research, please cite the
+[paper](https://openreview.net/forum?id=owCZMqNsqR). -->
 
 D3D-authored code is released under the [MIT License](LICENSE). Included
 third-party code and Qwen-derived weights retain their own terms; see

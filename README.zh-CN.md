@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://openreview.net/forum?id=owCZMqNsqR"><img src="https://img.shields.io/badge/%E8%AE%BA%E6%96%87-OpenReview-6366f1?style=flat-square" alt="论文"></a>
+  <!-- <a href="https://openreview.net/forum?id=owCZMqNsqR"><img src="https://img.shields.io/badge/%E8%AE%BA%E6%96%87-OpenReview-6366f1?style=flat-square" alt="论文"></a> -->
   <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"><img src="https://img.shields.io/badge/%E6%A8%A1%E5%9E%8B-D3D_Collection-fbbf24?style=flat-square" alt="D3D 模型合集"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B-%E5%BC%80%E5%A7%8B%E4%BD%BF%E7%94%A8-22c55e?style=flat-square" alt="快速开始"></a>
   <a href="docs/architecture.md"><img src="https://img.shields.io/badge/%E6%9E%B6%E6%9E%84-%E6%96%87%E6%A1%A3-0ea5e9?style=flat-square" alt="架构文档"></a>
@@ -219,8 +219,8 @@ tests/        模型加载、发布与指标核算测试
 
 ## 引用与许可
 
-如果 D3D 对你的研究有帮助，请引用我们的
-[论文](https://openreview.net/forum?id=owCZMqNsqR)。
+<!-- 如果 D3D 对你的研究有帮助，请引用我们的
+[论文](https://openreview.net/forum?id=owCZMqNsqR)。 -->
 
 D3D 自有代码以 [MIT 许可证](LICENSE)发布。包含的第三方代码与 Qwen 派生权重
 沿用各自的条款，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) 以及各个
