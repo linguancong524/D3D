@@ -45,11 +45,6 @@
 
 ## 🤗 模型仓库
 
-可选的 [严格双卡 SGLang 后端](docs/sglang-backend.md) 将 Target 与 Draft
-分别放在两张 GPU 上，不使用 Hybrid 本地回退。该后端需要独立环境，下面的原生
-快速开始入口保持不变。
-单请求服务时，SGLang 启动脚本默认使用一个 anchor。
-
 **[浏览 D3D 合集 →](https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75)**
 
 六个 Qwen3 派生的草稿 checkpoint 收录在 **lingc8 / D3D** 合集中。它们是
@@ -91,27 +86,6 @@ pip install -e . --no-deps
 先安装 PyTorch，再编译 FlashAttention。也可以使用匹配的预编译 wheel；
 源码编译需要 CUDA toolkit、C++ 编译器以及足够的主机内存。并发后端依赖
 FlashAttention。
-
-### 可选：严格双卡 SGLang 后端
-
-该后端将 Target 固定在 GPU 0、Draft 固定在 GPU 1，启用 CUDA Graph，默认使用
-一个 anchor；不会回退到 Target 本地 Draft。
-
-```bash
-bash scripts/sglang/install.sh
-export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
-export TARGET_GPU=0 DRAFT_GPU=1
-```
-
-在两个终端中先启动 Draft，再启动 Target：
-
-```bash
-bash scripts/sglang/launch.sh draft
-bash scripts/sglang/launch.sh remote
-```
-
-模型路径和其他选项见 [SGLang 部署说明](docs/sglang-backend.md)。
 
 <a id="quick-start"></a>
 
@@ -214,6 +188,24 @@ bash scripts/benchmark_concurrent.sh
 `livecodebench/code_generation_lite` 的 `test6.jsonl`，其余数据集使用
 `datasets`。来源、split、token 上限、计时边界与上报规则见
 [benchmark 协议](benchmarks/README.md)。
+
+## ⚙️ 推理引擎支持
+
+仓库支持原生 D3D 推理，也提供可选的严格双卡 SGLang 后端。请单独安装：
+
+```bash
+bash scripts/sglang/install.sh
+```
+
+先在 GPU 1 启动 Draft，再在 GPU 0 启动 Target：
+
+```bash
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export TARGET_GPU=0 DRAFT_GPU=1
+bash scripts/sglang/launch.sh draft   # 终端 1
+bash scripts/sglang/launch.sh remote  # 终端 2
+```
 
 ## 🗂️ 仓库结构
 

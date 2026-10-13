@@ -47,11 +47,6 @@ See the [architecture guide](docs/architecture.md) for the execution flow.
 
 ## 🤗 Model Zoo
 
-An optional [strict two-GPU SGLang backend](docs/sglang-backend.md) keeps the
-Target and Draft on separate GPUs without Hybrid local fallback. Install it in
-a separate environment; the native quick starts below are unchanged.
-The SGLang launcher defaults to one anchor for single-request serving.
-
 **[Browse the D3D collection →](https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75)**
 
 Six Qwen3-derived draft checkpoints are grouped in **lingc8 / D3D**. These are
@@ -94,27 +89,6 @@ pip install -e . --no-deps
 Install PyTorch before building FlashAttention. A matching prebuilt wheel can
 be used instead; source builds need a CUDA toolkit, a C++ compiler, and
 sufficient host memory. The concurrent backend requires FlashAttention.
-
-### Optional: strict two-GPU SGLang backend
-
-This backend keeps Target on GPU 0 and Draft on GPU 1. It uses CUDA Graphs and
-defaults to one anchor; it does not use a Target-local Draft fallback.
-
-```bash
-bash scripts/sglang/install.sh
-export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
-export TARGET_GPU=0 DRAFT_GPU=1
-```
-
-In two terminals, start Draft first and then Target:
-
-```bash
-bash scripts/sglang/launch.sh draft
-bash scripts/sglang/launch.sh remote
-```
-
-See [the SGLang guide](docs/sglang-backend.md) for model paths and options.
 
 <a id="quick-start"></a>
 
@@ -220,6 +194,25 @@ LiveCodeBench v6 uses `test6.jsonl` from
 `livecodebench/code_generation_lite`; the other datasets use `datasets`.
 See the [benchmark protocol](benchmarks/README.md) for sources, splits,
 token caps, timing boundaries, and reporting rules.
+
+## ⚙️ Inference Engine Support
+
+The repository supports native D3D inference and an optional strict two-GPU
+SGLang backend. Install SGLang separately:
+
+```bash
+bash scripts/sglang/install.sh
+```
+
+Run Draft on GPU 1 first, then Target on GPU 0:
+
+```bash
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export TARGET_GPU=0 DRAFT_GPU=1
+bash scripts/sglang/launch.sh draft   # terminal 1
+bash scripts/sglang/launch.sh remote  # terminal 2
+```
 
 ## 🗂️ Repository Guide
 
