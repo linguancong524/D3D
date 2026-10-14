@@ -13,9 +13,10 @@
   `.claude`). Reports referring to omitted evidence are upstream reports,
   not newly reproduced D3D results.
 - D3D integration lives outside this snapshot in `d3d_sglang/`. No original
-  source file was changed during import. The integration uses SGLang's plugin
-  registration API and its host-proposal verifier; it does not run the fork's
-  Hybrid Target-local draft path.
+  source file was changed during import. The default launcher wraps the fork's
+  Hybrid Target-local required Draft and remote optional Draft path. The
+  opt-in strict-remote plugin uses SGLang's plugin registration API and its
+  host-proposal verifier without a Target-local Draft.
 
 The original SGLang license is retained in `LICENSE`. Fork contributions are
 attributed to the source repository and its contributors; retaining this

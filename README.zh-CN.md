@@ -191,24 +191,23 @@ bash scripts/benchmark_concurrent.sh
 
 ## ⚙️ 推理引擎支持
 
-仓库支持原生 D3D 推理，也提供可选的严格双卡 SGLang 后端。请单独安装：
+仓库支持原生 D3D 推理，也提供可选的双卡 SGLang Hybrid 后端。请单独安装：
 
 ```bash
 bash scripts/sglang/install.sh
 ```
 
-先在 GPU 1 启动 Draft，再在 GPU 0 启动 Target：
+启动双卡后端（GPU 0：Target + 本地 Draft；GPU 1：备选 Draft）：
 
 ```bash
 export TARGET_MODEL=Qwen/Qwen3-8B
 export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 export TARGET_GPU=0 DRAFT_GPU=1
 export MAX_RUNNING_REQUESTS=1
-bash scripts/sglang/launch.sh draft   # 终端 1
-bash scripts/sglang/launch.sh remote  # 终端 2
+bash scripts/sglang/launch.sh hybrid
 ```
 
-然后在第三个终端运行 MATH-500 评测：
+然后在另一个终端运行 MATH-500 评测：
 
 ```bash
 export MAX_RUNNING_REQUESTS=1
@@ -223,8 +222,8 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 
 数据集会自动下载，并由 Hugging Face Datasets 缓存。
 
-在三个终端中将 `MAX_RUNNING_REQUESTS` 统一设为 `1`、`4`、`8` 或 `16`；
-修改后需重启 Draft 和 Target。
+在两个终端中将 `MAX_RUNNING_REQUESTS` 统一设为 `1`、`4`、`8` 或 `16`；
+修改后需重启后端。
 
 ## 🗂️ 仓库结构
 

@@ -35,8 +35,9 @@ implementation contributed through `wintem0531/sglang-speedup-nvidia`, commit
 commit `71de97b264b04dcd514cf904003028aefe9775c8`. Original license files are
 preserved, including `third_party/sglang/LICENSE`; those sources are not
 relicensed under D3D's MIT license. See `third_party/sglang/UPSTREAM_D3D.md`
-for attribution and export exclusions. D3D's separate strict-remote plugin
-is in `d3d_sglang/`.
+for attribution and export exclusions. D3D's default Hybrid launcher wraps
+the fork's original `DECOUPLED` implementation; the optional strict-remote
+plugin is retained in `d3d_sglang/`.
 
 ## Model and dataset terms
 

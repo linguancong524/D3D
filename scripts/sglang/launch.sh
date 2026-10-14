@@ -3,13 +3,16 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PYTHON_BIN="${SGLANG_PYTHON:-$ROOT/.venv-sglang/bin/python}"
 export PATH="$(dirname "$PYTHON_BIN"):$PATH"
-MODE="${1:-remote}"
+MODE="${1:-hybrid}"
 shift || true
 TARGET_MODEL="${TARGET_MODEL:-Qwen/Qwen3-8B}"
 DRAFT_MODEL="${DRAFT_MODEL:-lingc8/D3D-1.7B-to-8B}"
 ENDPOINT="${DRAFT_ENDPOINT:-tcp://127.0.0.1:17891}"
 export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1}"
 export no_proxy="$NO_PROXY"
+if [[ "$MODE" == "hybrid" ]]; then
+  exec "$PYTHON_BIN" -m d3d_sglang.hybrid "$@"
+fi
 if [[ "$MODE" == "draft" ]]; then
   export CUDA_VISIBLE_DEVICES="${DRAFT_GPU:-1}"
   DRAFT_EXTRA=()
@@ -26,7 +29,7 @@ if [[ "$MODE" == "draft" ]]; then
     --packed-graph-max-requests "${MAX_RUNNING_REQUESTS:-1}" "${DRAFT_EXTRA[@]}" "$@"
 fi
 if [[ "$MODE" != "remote" && "$MODE" != "ar" ]]; then
-  echo "Usage: $0 {draft|remote|ar} [arguments]" >&2
+  echo "Usage: $0 {hybrid|draft|remote|ar} [arguments]" >&2
   exit 2
 fi
 export CUDA_VISIBLE_DEVICES="${TARGET_GPU:-0}"

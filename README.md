@@ -197,25 +197,24 @@ token caps, timing boundaries, and reporting rules.
 
 ## ⚙️ Inference Engine Support
 
-The repository supports native D3D inference and an optional strict two-GPU
-SGLang backend. Install SGLang separately:
+The repository supports native D3D inference and an optional two-GPU
+SGLang Hybrid backend. Install SGLang separately:
 
 ```bash
 bash scripts/sglang/install.sh
 ```
 
-Run Draft on GPU 1 first, then Target on GPU 0:
+Start the two-GPU backend (GPU 0: Target + local Draft; GPU 1: optional Draft):
 
 ```bash
 export TARGET_MODEL=Qwen/Qwen3-8B
 export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
 export TARGET_GPU=0 DRAFT_GPU=1
 export MAX_RUNNING_REQUESTS=1
-bash scripts/sglang/launch.sh draft   # terminal 1
-bash scripts/sglang/launch.sh remote  # terminal 2
+bash scripts/sglang/launch.sh hybrid
 ```
 
-Then run a MATH-500 evaluation from a third terminal:
+Then run a MATH-500 evaluation from another terminal:
 
 ```bash
 export MAX_RUNNING_REQUESTS=1
@@ -230,8 +229,8 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 
 The dataset is downloaded automatically and cached by Hugging Face Datasets.
 
-Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` in all three terminals;
-restart Draft and Target after changing it.
+Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` in both terminals;
+restart the backend after changing it.
 
 ## 🗂️ Repository Guide
 

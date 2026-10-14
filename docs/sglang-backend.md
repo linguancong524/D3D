@@ -1,6 +1,61 @@
-# Strict two-GPU SGLang backend
+# Two-GPU SGLang backend
 
-This optional backend preserves D3D's deployment topology: GPU0 owns only the
+## Default: upstream Hybrid
+
+The default backend uses the original `DECOUPLED` Hybrid architecture from
+`wintem0531/sglang-speedup-nvidia`: GPU 0 holds the Target and a local required
+Draft; GPU 1 holds the optional Draft that asynchronously prepares branches.
+Uncovered results fall back to the local Draft. This is not strict Target/Draft
+separation. The vendored implementation is unchanged; D3D wraps its launcher.
+
+Install the separate environment and start both workers from the D3D root:
+
+```bash
+bash scripts/sglang/install.sh
+export TARGET_MODEL=Qwen/Qwen3-8B
+export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export TARGET_GPU=0 DRAFT_GPU=1 MAX_RUNNING_REQUESTS=1
+bash scripts/sglang/launch.sh hybrid
+```
+
+From another terminal, using the same model and concurrency variables:
+
+```bash
+export TARGET_MODEL=Qwen/Qwen3-8B MAX_RUNNING_REQUESTS=1
+.venv-sglang/bin/python scripts/sglang/benchmark.py \
+  --dataset math500 --tokenizer "$TARGET_MODEL" \
+  --samples 128 --concurrency "$MAX_RUNNING_REQUESTS" \
+  --repetitions 1 --max-new-tokens 512 \
+  --output outputs/sglang/hybrid-c${MAX_RUNNING_REQUESTS}.json
+```
+
+Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` and restart the backend.
+Stop Hybrid before starting the native SGLang AR baseline with
+`bash scripts/sglang/launch.sh ar`; measure with identical benchmark arguments,
+then pass its JSON to the Hybrid benchmark via `--baseline`.
+Use a fresh output filename for each run. Datasets download/cache automatically.
+
+Defaults follow the upstream H800 Hybrid graph configuration: block 16,
+one anchor, FP16 remote Draft, BF16 Target, local packed graph capacity 1024
+tokens, remote packed CUDA Graph enabled, covered-result wait 12 ms,
+local prefix reuse disabled. Target verification CUDA Graph is enabled;
+prefill CUDA Graph is disabled. Local full replay exceeds graph capacity at
+long prefixes or large batches and falls back to eager execution. The Target
+request pool reserves one extra padding slot; client `--concurrency` controls
+the measured load. `--dry-run` prints commands without starting GPU workers.
+
+`DETERMINISTIC=0` is the default for comparison with ordinary SGLang AR;
+set `DETERMINISTIC=1` for diagnostic deterministic Target operators. Neither
+mode is an accuracy claim: inspect `exact_text_matches`, and validate answer
+quality separately. Non-deterministic multi-request runs can differ from AR.
+High-concurrency speedups are not guaranteed. Raw results/logs remain under
+ignored `outputs/` and are not public benchmark claims.
+
+The following section documents the retained opt-in strict-remote backend.
+
+## Optional: strict two-GPU separation
+
+The `draft` / `remote` modes preserve D3D's deployment topology: GPU0 owns only the
 Target model and its KV cache; GPU1 owns only the Draft model and its KV cache.
 There is no Target-local Draft or Hybrid fallback. Native D3D entry points and
 their PyTorch 2.6 environment remain unchanged.
