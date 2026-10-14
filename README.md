@@ -222,8 +222,8 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 .venv-sglang/bin/python scripts/sglang/benchmark.py \
   --dataset math500 \
   --tokenizer "$TARGET_MODEL" \
-  --samples "$MAX_RUNNING_REQUESTS" --concurrency "$MAX_RUNNING_REQUESTS" \
-  --repetitions 1 --max-new-tokens 128 \
+  --samples 128 --concurrency "$MAX_RUNNING_REQUESTS" \
+  --repetitions 1 --max-new-tokens 512 \
   --output outputs/sglang/example.json
 ```
 
