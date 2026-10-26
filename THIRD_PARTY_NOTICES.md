@@ -21,7 +21,8 @@ included at `models/d3d/APACHE_LICENSE`.
 The training and progressive-pruning implementation is integrated from the
 D3D authors' `d3d_release` training release. Its training-specific model port
 is kept in `models/d3d_training/` to preserve the existing inference runtime.
-See [the training guide](docs/training.md) for environment separation.
+See [the training guide](docs/training.md) for the shared native environment
+and separate optional SGLang runtime.
 
 ## SDAR
 

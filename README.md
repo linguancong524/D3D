@@ -72,9 +72,10 @@ Six Qwen3-derived draft checkpoints are grouped in **lingc8 / D3D**. These are
 
 ## 📦 Installation
 
-The tested environment uses **PyTorch 2.6.0**, **Transformers 4.52.4**,
-**FlashAttention 2.7.4.post1**, and **CUDA 12.x**. Python 3.10+ is supported;
-local GPU validation used Python 3.11 and two NVIDIA H800 80 GB GPUs.
+Training, layer pruning, and native single-request/concurrent inference share
+**PyTorch 2.8.0**, **Transformers 4.57.3**, **FlashAttention 2.8.3**, and
+**CUDA 12.8**. Python 3.10+ is supported; unified-environment GPU validation used
+Python 3.12 and two NVIDIA H800 80 GB GPUs.
 
 ```bash
 git clone https://github.com/linguancong524/D3D.git
@@ -82,13 +83,16 @@ cd D3D
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pip install flash-attn==2.7.4.post1 --no-build-isolation
+pip install flash-attn==2.8.3 --no-build-isolation
 pip install -e . --no-deps
 ```
 
 Install PyTorch before building FlashAttention. A matching prebuilt wheel can
 be used instead; source builds need a CUDA toolkit, a C++ compiler, and
 sufficient host memory. The concurrent backend requires FlashAttention.
+`requirements-train.txt` is a compatibility alias for `requirements.txt`.
+The optional SGLang backend still requires its separately locked environment;
+do not install its runtime lock into this environment.
 
 <a id="quick-start"></a>
 
@@ -238,10 +242,10 @@ The training release is integrated in `train/` and `pruning/`, including
 offline training on target-generated responses, layer selection, physical
 pruning, recovery training, and recovery-checkpoint selection.
 
-Use a **separate environment** with `requirements-train.txt`; the training
-release uses PyTorch 2.8.0 and Transformers 4.57.3, not the inference pins above.
-The training model port lives in `models/d3d_training/`, leaving the existing
-inference model and SGLang runtime unchanged.
+Use the **same environment** installed above with `requirements.txt` for
+training and native inference. The training model port remains in
+`models/d3d_training/`; sharing dependencies does not replace the existing
+inference implementation or the separately locked SGLang runtime.
 
 ```bash
 export DRAFT_MODEL=checkpoints/Qwen3-1.7B
@@ -261,7 +265,7 @@ data schemas, loss settings, and all four pruning stages.
 single/       Single-request asynchronous draft-and-verify decoding
 serving/      Concurrent decoding, paged KV cache, and AR baselines
 models/d3d/   Qwen3-derived D3D draft backbone and compatibility code
-models/d3d_training/  Training-specific model port (separate environment)
+models/d3d_training/  Training-specific model port (shared dependencies)
 train/        Offline training on target-generated response tokens
 pruning/      Layer selection, physical pruning, recovery, checkpoint selection
 common/       Shared helpers: devices, checkpoints, datasets, text, metrics

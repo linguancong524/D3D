@@ -69,9 +69,9 @@
 
 ## 📦 安装
 
-测试环境为 **PyTorch 2.6.0**、**Transformers 4.52.4**、
-**FlashAttention 2.7.4.post1** 与 **CUDA 12.x**；支持 Python 3.10+，本地
-GPU 验证使用 Python 3.11 和两张 NVIDIA H800 80 GB。
+训练、层剪枝与原生单请求/并发推理统一使用 **PyTorch 2.8.0**、
+**Transformers 4.57.3**、**FlashAttention 2.8.3** 与 **CUDA 12.8**；
+支持 Python 3.10+，统一环境的本地 GPU 验证使用 Python 3.12 和两张 NVIDIA H800 80 GB。
 
 ```bash
 git clone https://github.com/linguancong524/D3D.git
@@ -79,13 +79,15 @@ cd D3D
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-pip install flash-attn==2.7.4.post1 --no-build-isolation
+pip install flash-attn==2.8.3 --no-build-isolation
 pip install -e . --no-deps
 ```
 
 先安装 PyTorch，再编译 FlashAttention。也可以使用匹配的预编译 wheel；
 源码编译需要 CUDA toolkit、C++ 编译器以及足够的主机内存。并发后端依赖
 FlashAttention。
+`requirements-train.txt` 保留为 `requirements.txt` 的兼容入口。
+可选 SGLang 后端仍使用单独锁定的环境，请勿将其 runtime lock 安装到该环境中。
 
 <a id="quick-start"></a>
 
@@ -230,9 +232,9 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 训练发布代码已整合到 `train/` 和 `pruning/`，包括基于 target 生成回答的离线训练、
 层选择、物理剪枝、恢复训练和恢复 checkpoint 选择。
 
-请使用**独立环境**安装 `requirements-train.txt`。训练代码使用 PyTorch 2.8.0 和
-Transformers 4.57.3，与上面的推理依赖不同。训练版模型独立放在
-`models/d3d_training/`，不覆盖现有推理模型与 SGLang 运行时。
+训练与原生推理使用上面通过 `requirements.txt` 安装的**同一环境**。
+训练版模型仍独立放在 `models/d3d_training/`；依赖统一不改变现有推理实现，
+也不替换 SGLang 单独锁定的运行环境。
 
 ```bash
 export DRAFT_MODEL=checkpoints/Qwen3-1.7B
@@ -251,7 +253,7 @@ CUDA_VISIBLE_DEVICES=0,1 NUM_GPUS=2 bash scripts/train.sh \
 single/       单请求异步 draft-and-verify 解码
 serving/      并发解码、paged KV cache 与 AR baseline
 models/d3d/   Qwen3 派生的 D3D 草稿骨干与兼容代码
-models/d3d_training/  训练专用模型实现（独立环境）
+models/d3d_training/  训练专用模型实现（共用依赖环境）
 train/        基于 target 生成回答 token 的离线训练
 pruning/      层选择、物理剪枝、恢复训练与 checkpoint 选择
 common/       共享工具：设备、checkpoint、数据集、文本、指标

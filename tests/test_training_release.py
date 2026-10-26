@@ -14,6 +14,10 @@ sys.path.insert(0, str(ROOT))
 
 
 class TrainingLauncherTests(unittest.TestCase):
+    def test_training_requirements_reuse_native_inference_dependencies(self):
+        requirements = (ROOT / 'requirements-train.txt').read_text().splitlines()
+        self.assertEqual(requirements, ['-r requirements.txt'])
+
     def run_launcher(self, script, arguments, environment=None):
         with tempfile.TemporaryDirectory() as directory:
             capture = Path(directory) / 'arguments.json'
@@ -98,7 +102,7 @@ except importlib.metadata.PackageNotFoundError:
     TRAINING_ENVIRONMENT = False
 
 
-@unittest.skipUnless(TRAINING_ENVIRONMENT, 'requires the separate Transformers 4.57 training environment')
+@unittest.skipUnless(TRAINING_ENVIRONMENT, 'requires the shared Transformers 4.57 environment')
 class TrainingRuntimeTests(unittest.TestCase):
     def test_pruning_remaps_weights_and_loads_training_model(self):
         import torch

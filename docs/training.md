@@ -5,19 +5,21 @@ and `pruning/`. The existing single-request, concurrent, and SGLang inference
 paths remain unchanged. The original release's duplicate evaluation code,
 figure, and paper PDF are not copied into this repository.
 
-## Separate training environment
+## Shared training and native-inference environment
 
-Training and inference have different dependency pins. Do not install
-`requirements.txt` and `requirements-train.txt` into the same environment.
+Training, pruning, and native single-request/concurrent inference use one
+dependency set. `requirements-train.txt` includes `requirements.txt` for
+backward compatibility; a second training virtual environment is unnecessary.
+The optional SGLang backend retains its separate runtime lock and environment.
 
 ```bash
-python3.11 -m venv .venv-train
-source .venv-train/bin/activate
-pip install -r requirements-train.txt
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 pip install -e . --no-deps
 ```
 
-The training release pins PyTorch 2.8.0, Transformers 4.57.3, Accelerate 1.12.0,
+The shared environment pins PyTorch 2.8.0, Transformers 4.57.3, Accelerate 1.12.0,
 and TorchAO 0.13.0. Install a host-compatible PyTorch 2.8.0 CUDA wheel if needed.
 The launcher's default attention backend additionally requires:
 
@@ -28,7 +30,8 @@ pip install flash-attn==2.8.3 --no-build-isolation
 Alternatively pass `--attn-implementation sdpa` to avoid FlashAttention.
 SDPA does not make the distributed training launcher a CPU training command.
 The training model implementation lives in `models/d3d_training/`; inference
-continues to use `models/d3d/` and its original environment.
+continues to use `models/d3d/` in the same environment. See the
+[environment validation](environment-validation.md) for the tested scope.
 
 ## Training data
 
@@ -89,7 +92,7 @@ distributed port. For W&B, omit `--disable-wandb` and use `wandb login` or
 `WANDB_MODE=offline`; do not put credentials in scripts.
 
 Saved checkpoints include the model configuration and training-compatible
-remote code. Use the existing inference environment to evaluate the resulting
+remote code. Use the same environment to evaluate the resulting
 local checkpoint with the normal `--drafter` / `--draft` flags. This integration
 does not claim GPU training convergence or benchmark improvements.
 

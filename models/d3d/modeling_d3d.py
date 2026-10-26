@@ -910,7 +910,7 @@ class D3DForCausalLM(D3DPreTrainedModel, GenerationMixin):
         slice_indices = slice(-logits_to_keep,
                               None) if isinstance(logits_to_keep, int) else logits_to_keep
         hidden_states = hidden_states[:, slice_indices, :].contiguous()
-        fuse_linear_and_cross_entropy = self.config.fuse_cross_entropy and self.training
+        fuse_linear_and_cross_entropy = getattr(self.config, "fuse_cross_entropy", False) and self.training
         if fuse_linear_and_cross_entropy:
             # When using fused_linear_ce_loss, we do not compute the whole logits on HBM
             logits = None

@@ -143,3 +143,32 @@ class ModelLoadingTests(unittest.TestCase):
                     for name, tensor in source.state_dict().items():
                         torch.testing.assert_close(model.state_dict()[name], tensor.bfloat16(),
                                                    rtol=0, atol=0)
+
+    def test_training_checkpoint_loads_for_native_inference(self):
+        from models.d3d_training.configuration_d3d import D3DConfig
+        from models.d3d_training.modeling_d3d import D3DForCausalLM
+        from single.eval_sync import _load_model
+        from transformers.cache_utils import DynamicCache
+
+        config = D3DConfig(
+            vocab_size=64, hidden_size=32, intermediate_size=64, num_hidden_layers=1,
+            num_attention_heads=4, num_key_value_heads=2, head_dim=8,
+            max_position_embeddings=128, pad_token_id=0, eos_token_id=1,
+            bos_token_id=2, use_sliding_window=False,
+        )
+        source = D3DForCausalLM(config)
+        with tempfile.TemporaryDirectory() as directory:
+            source.save_pretrained(directory)
+            model = _load_model(directory, torch.bfloat16, attn_implementation='sdpa').eval()
+            self.assertEqual(set(source.state_dict()), set(model.state_dict()))
+            for name, tensor in source.state_dict().items():
+                torch.testing.assert_close(model.state_dict()[name], tensor.bfloat16(), rtol=0, atol=0)
+            with torch.inference_mode():
+                output = model(
+                    torch.tensor([[3, 4, 5]]),
+                    attention_mask=torch.ones(1, 1, 3, 3, dtype=torch.bool),
+                    position_ids=torch.arange(3).unsqueeze(0),
+                    past_key_values=DynamicCache(), use_cache=True, store_kv=True,
+                )
+            self.assertEqual(tuple(output.logits.shape), (1, 3, 64))
+            self.assertTrue(torch.isfinite(output.logits).all())
