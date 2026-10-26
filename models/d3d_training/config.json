@@ -1,0 +1,9 @@
+{
+  "model_type": "d3d",
+  "architectures": ["D3DForCausalLM"],
+  "auto_map": {
+    "AutoConfig": "configuration_d3d.D3DConfig",
+    "AutoModel": "modeling_d3d.D3DModel",
+    "AutoModelForCausalLM": "modeling_d3d.D3DForCausalLM"
+  }
+}

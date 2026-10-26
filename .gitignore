@@ -9,6 +9,8 @@ build/
 dist/
 
 outputs/
+checkpoints/
+wandb/
 results/
 results*/
 logs/

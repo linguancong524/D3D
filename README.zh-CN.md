@@ -225,12 +225,35 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 在两个终端中将 `MAX_RUNNING_REQUESTS` 统一设为 `1`、`4`、`8` 或 `16`；
 修改后需重启后端。
 
+## 🏋️ 训练与层剪枝
+
+训练发布代码已整合到 `train/` 和 `pruning/`，包括基于 target 生成回答的离线训练、
+层选择、物理剪枝、恢复训练和恢复 checkpoint 选择。
+
+请使用**独立环境**安装 `requirements-train.txt`。训练代码使用 PyTorch 2.8.0 和
+Transformers 4.57.3，与上面的推理依赖不同。训练版模型独立放在
+`models/d3d_training/`，不覆盖现有推理模型与 SGLang 运行时。
+
+```bash
+export DRAFT_MODEL=checkpoints/Qwen3-1.7B
+export TARGET_MODEL=checkpoints/Qwen3-8B
+export DATA_PATH=data/train.jsonl
+CUDA_VISIBLE_DEVICES=0,1 NUM_GPUS=2 bash scripts/train.sh \
+    --attn-implementation sdpa --disable-wandb
+```
+
+请先下载初始模型并准备 JSONL 数据。安装方法、数据格式、损失设置与四阶段剪枝命令见
+[训练与渐进式剪枝指南](docs/training.md)。
+
 ## 🗂️ 仓库结构
 
 ```text
 single/       单请求异步 draft-and-verify 解码
 serving/      并发解码、paged KV cache 与 AR baseline
 models/d3d/   Qwen3 派生的 D3D 草稿骨干与兼容代码
+models/d3d_training/  训练专用模型实现（独立环境）
+train/        基于 target 生成回答 token 的离线训练
+pruning/      层选择、物理剪枝、恢复训练与 checkpoint 选择
 common/       共享工具：设备、checkpoint、数据集、文本、指标
 scripts/      quick start、smoke check 与 benchmark 入口
 benchmarks/   数据集来源与评测协议

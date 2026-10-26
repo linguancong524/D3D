@@ -232,12 +232,38 @@ The dataset is downloaded automatically and cached by Hugging Face Datasets.
 Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` in both terminals;
 restart the backend after changing it.
 
+## 🏋️ Training and Layer Pruning
+
+The training release is integrated in `train/` and `pruning/`, including
+offline training on target-generated responses, layer selection, physical
+pruning, recovery training, and recovery-checkpoint selection.
+
+Use a **separate environment** with `requirements-train.txt`; the training
+release uses PyTorch 2.8.0 and Transformers 4.57.3, not the inference pins above.
+The training model port lives in `models/d3d_training/`, leaving the existing
+inference model and SGLang runtime unchanged.
+
+```bash
+export DRAFT_MODEL=checkpoints/Qwen3-1.7B
+export TARGET_MODEL=checkpoints/Qwen3-8B
+export DATA_PATH=data/train.jsonl
+CUDA_VISIBLE_DEVICES=0,1 NUM_GPUS=2 bash scripts/train.sh \
+    --attn-implementation sdpa --disable-wandb
+```
+
+Download the initial checkpoints and prepare the JSONL dataset first. See the
+[training and progressive-pruning guide](docs/training.md) for installation,
+data schemas, loss settings, and all four pruning stages.
+
 ## 🗂️ Repository Guide
 
 ```text
 single/       Single-request asynchronous draft-and-verify decoding
 serving/      Concurrent decoding, paged KV cache, and AR baselines
 models/d3d/   Qwen3-derived D3D draft backbone and compatibility code
+models/d3d_training/  Training-specific model port (separate environment)
+train/        Offline training on target-generated response tokens
+pruning/      Layer selection, physical pruning, recovery, checkpoint selection
 common/       Shared helpers: devices, checkpoints, datasets, text, metrics
 scripts/      Quick starts, smoke checks, and benchmark entry points
 benchmarks/   Dataset sources and evaluation protocol

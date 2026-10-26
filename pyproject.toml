@@ -21,9 +21,10 @@ Repository = "https://github.com/linguancong524/D3D"
 Models = "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"
 
 [tool.setuptools.packages.find]
-include = ["single*", "serving*", "models*", "common*", "d3d_sglang*"]
+include = ["single*", "serving*", "models*", "common*", "d3d_sglang*", "train*", "pruning*"]
 namespaces = true
 
 [tool.setuptools.package-data]
 serving = ["vendor/SSD_LICENSE", "vendor/UPSTREAM.md"]
 "models.d3d" = ["APACHE_LICENSE"]
+"models.d3d_training" = ["config.json"]

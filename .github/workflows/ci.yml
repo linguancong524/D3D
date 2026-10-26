@@ -31,5 +31,25 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Python and shell syntax
         run: |
-          python -m compileall -q single serving models common
+          python -m compileall -q single serving models common train pruning
           for script in scripts/*.sh; do bash -n "$script"; done
+
+  training-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-train.txt
+      - name: Install CPU training-check dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install transformers==4.57.3 accelerate==1.12.0 safetensors==0.7.0 pandas==2.3.3 pyarrow==22.0.0
+          pip install -e . --no-deps
+      - name: Training and pruning integration checks
+        env:
+          CUDA_VISIBLE_DEVICES: ''
+        run: python -m unittest discover -s tests -p test_training_release.py -v
