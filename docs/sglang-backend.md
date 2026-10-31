@@ -35,6 +35,14 @@ Stop Hybrid before starting the native SGLang AR baseline with
 then pass its JSON to the Hybrid benchmark via `--baseline`.
 Use a fresh output filename for each run. Datasets download/cache automatically.
 
+Use `--samples 0 --repetitions 1` to measure every row of a dataset once.
+Full-dataset runs use a separate synthetic warmup prompt, keeping every source
+row in the measured workload. Registered datasets retain their dataset-specific
+prompts; JSONL files accept `prompt`, `text`, `problem` or `question` fields.
+The benchmark writes completed requests to a sibling `.rows.jsonl` file during
+execution, then writes the final JSON summary on success. Failed runs retain
+the request journal and must use a new output filename when restarted.
+
 Defaults follow the upstream H800 Hybrid graph configuration: block 16,
 one anchor, FP16 remote Draft, BF16 Target, local packed graph capacity 1024
 tokens, remote packed CUDA Graph enabled, covered-result wait 12 ms,
@@ -57,8 +65,8 @@ The following section documents the retained opt-in strict-remote backend.
 
 The `draft` / `remote` modes preserve D3D's deployment topology: GPU0 owns only the
 Target model and its KV cache; GPU1 owns only the Draft model and its KV cache.
-There is no Target-local Draft or Hybrid fallback. Native D3D entry points and
-their PyTorch 2.6 environment remain unchanged.
+There is no Target-local Draft or Hybrid fallback. Native D3D training and
+inference share the PyTorch 2.8.0 environment documented in [environment-validation.md](environment-validation.md).
 
 ## Source and implementation
 

@@ -63,6 +63,13 @@ def generate_row(base_url, index, tokens, sampling, repetition):
     }
 
 
+def local_question(row):
+    for key in ("prompt", "text", "problem", "question"):
+        if isinstance(row.get(key), str):
+            return row[key]
+    raise ValueError("JSONL rows need a prompt, text, problem or question field")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://127.0.0.1:30000")
@@ -71,7 +78,7 @@ def main():
         help="dataset name such as math500 (auto-download) or a local JSONL path",
     )
     parser.add_argument("--tokenizer", required=True)
-    parser.add_argument("--samples", type=int, default=8)
+    parser.add_argument("--samples", type=int, default=8, help="0 selects the entire dataset")
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--max-new-tokens", type=int, default=512)
@@ -79,8 +86,8 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--baseline")
     args = parser.parse_args()
-    if args.samples < 1 or args.repetitions < 1 or args.concurrency < 1:
-        parser.error("samples, repetitions and concurrency must be positive")
+    if args.samples < 0 or args.repetitions < 1 or args.concurrency < 1:
+        parser.error("samples must be nonnegative; repetitions and concurrency must be positive")
     from transformers import AutoTokenizer
 
     output = Path(args.output)
@@ -90,7 +97,8 @@ def main():
     if dataset_path.is_file():
         source = dataset_path.read_bytes()
         dataset = [json.loads(line) for line in source.splitlines() if line.strip()]
-        question_fn = lambda row: row["problem"] if "problem" in row else row["question"]
+        question_fn = local_question
+        dataset_metadata = {"source": str(dataset_path.resolve())}
     else:
         from common.data import DATASETS, load_rows
 
@@ -98,18 +106,27 @@ def main():
             raise ValueError(
                 f"unknown dataset {args.dataset!r}; use a registered name or JSONL path"
             )
-        dataset, _, _ = load_rows(args.dataset, None)
+        dataset, config, _ = load_rows(args.dataset, None)
+        dataset_metadata = {key: value for key, value in config.items() if not callable(value)}
         source = json.dumps(dataset, sort_keys=True, default=str).encode()
         question_fn = DATASETS[args.dataset]["question"]
-    indices = random.Random(args.seed).sample(range(len(dataset)), args.samples + 1)
+    if not dataset:
+        raise ValueError("dataset is empty")
+    if args.samples == 0 or args.samples == len(dataset):
+        indices = list(range(len(dataset)))
+        warmup_index = None
+    elif args.samples < len(dataset):
+        selected = random.Random(args.seed).sample(range(len(dataset)), args.samples + 1)
+        indices, warmup_index = selected[:-1], selected[-1]
+    else:
+        raise ValueError(f"requested {args.samples} samples from {len(dataset)} rows")
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     prompts = []
-    for index in indices:
+    for index in indices + ([warmup_index] if warmup_index is not None else []):
         row = dataset[index]
         question = question_fn(row)
-        text = question + "\nPlease reason step by step and put your final answer in \\boxed{}."
         prompts.append(tokenizer.apply_chat_template(
-            [{"role": "user", "content": text}],
+            [{"role": "user", "content": question}],
             tokenize=True, return_dict=False, add_generation_prompt=True,
             enable_thinking=False,
         ))
@@ -117,24 +134,37 @@ def main():
         "temperature": 0, "max_new_tokens": args.max_new_tokens,
         "ignore_eos": False,
     }
-    call(args.url, "/generate", {"input_ids": prompts[-1], "sampling_params": sampling})
+    if warmup_index is None:
+        warmup = tokenizer.apply_chat_template(
+            [{"role": "user", "content": "Explain how to check a calculation, then write a short Python function that adds two numbers."}],
+            tokenize=True, return_dict=False, add_generation_prompt=True, enable_thinking=False,
+        )
+    else:
+        warmup = prompts.pop()
+    progress = output.with_suffix(".rows.jsonl")
+    if progress.exists():
+        raise FileExistsError(progress)
+    call(args.url, "/generate", {"input_ids": warmup, "sampling_params": sampling})
     rows = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
+    with progress.open("x") as journal, concurrent.futures.ThreadPoolExecutor(max_workers=args.concurrency) as executor:
         started = time.perf_counter()
         for repetition in range(args.repetitions):
             futures = [executor.submit(
                 generate_row, args.url, index, tokens, sampling, repetition,
-            ) for index, tokens in zip(indices[:-1], prompts[:-1])]
+            ) for index, tokens in zip(indices, prompts)]
             for future in futures:
                 row = future.result()
                 rows.append(row)
+                journal.write(json.dumps(row, ensure_ascii=False) + "\n")
+                journal.flush()
                 print(f"request {len(rows)}: {row['output_tokens']} tokens / "
                       f"{row['elapsed_seconds']:.3f}s", flush=True)
         elapsed = time.perf_counter() - started
     report = {
         "configuration": vars(args),
         "dataset_sha256": hashlib.sha256(source).hexdigest(),
-        "indices": indices[:-1], "warmup_index": indices[-1],
+        "dataset_metadata": dataset_metadata,
+        "indices": indices, "warmup_index": warmup_index, "warmup_input_ids": warmup,
         "sampling_params": sampling, "rows": rows,
         "summary": summarize(rows, elapsed),
     }

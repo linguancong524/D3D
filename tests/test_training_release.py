@@ -14,10 +14,6 @@ sys.path.insert(0, str(ROOT))
 
 
 class TrainingLauncherTests(unittest.TestCase):
-    def test_training_requirements_reuse_native_inference_dependencies(self):
-        requirements = (ROOT / 'requirements-train.txt').read_text().splitlines()
-        self.assertEqual(requirements, ['-r requirements.txt'])
-
     def run_launcher(self, script, arguments, environment=None):
         with tempfile.TemporaryDirectory() as directory:
             capture = Path(directory) / 'arguments.json'

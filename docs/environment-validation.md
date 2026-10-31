@@ -4,7 +4,7 @@
 
 `requirements.txt` is the single dependency source for offline training,
 progressive pruning, native single-request inference, and native concurrent
-inference. `requirements-train.txt` only includes that file.
+inference.
 
 | Package | Version |
 |:---|:---|
@@ -70,6 +70,27 @@ CUDA_VISIBLE_DEVICES=0,1 python -m serving.bench \
 
 Use the exact revisions above, or local snapshots, when reproducing the recorded
 check. The entry point records runtime metadata and reference comparisons.
+
+## GPU training checks — 2026-10-31
+
+The same persistent `.venv` used for native evaluation also completed two-GPU
+FSDP2 training with the released 1.7B draft and Qwen3-8B tokenizer revisions
+listed above. Both SDPA and FlashAttention-2 completed two optimizer updates
+with BF16, block size 16, four anchors per example, CE plus AR loss, and no
+gradient accumulation. The eight synthetic arithmetic conversations were used
+only to check the training pipeline, with sequence limits of 512 tokens.
+
+SDPA block loss was 5.490164 then 5.023682; AR loss was 2.831461 then 2.683333.
+Its step-2 checkpoint was saved successfully. FlashAttention-2 block loss was
+5.495502 then 5.023467; AR loss was 2.831461 then 2.677778. Both runs supervised
+112 and 96 block tokens across the two steps. These checks establish working
+forward/backward and optimizer execution, not convergence or training quality.
+The saved SDPA checkpoint also loaded through the native asynchronous packed
+evaluation entry point and completed one MATH-500 request with 32 output tokens.
+
+`requirements.txt` is the only native dependency entry point. The obsolete
+training requirements alias has been removed. SGLang continues to use its
+separate environment below.
 
 ## SGLang remains separate
 

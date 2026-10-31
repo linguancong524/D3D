@@ -8,8 +8,8 @@ figure, and paper PDF are not copied into this repository.
 ## Shared training and native-inference environment
 
 Training, pruning, and native single-request/concurrent inference use one
-dependency set. `requirements-train.txt` includes `requirements.txt` for
-backward compatibility; a second training virtual environment is unnecessary.
+dependency set in `requirements.txt`; a second training virtual environment
+is unnecessary.
 The optional SGLang backend retains its separate runtime lock and environment.
 
 ```bash

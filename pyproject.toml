@@ -17,7 +17,6 @@ d3d_strict = "d3d_sglang.plugin:register"
 [project.urls]
 Homepage = "https://github.com/linguancong524/D3D"
 Repository = "https://github.com/linguancong524/D3D"
-# Paper = "https://openreview.net/forum?id=owCZMqNsqR"
 Models = "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"
 
 [tool.setuptools.packages.find]

@@ -271,29 +271,6 @@ def dummy_clean_cache_forward(
     )
 
 
-def detach_draft_cache(
-    cache: DynamicCache,
-    *,
-    clean_lens: torch.LongTensor,
-) -> DynamicCache:
-    """Detach cached clean KV before the block loss backward pass."""
-
-    detached = DynamicCache()
-    max_clean_len = int(clean_lens.max().item())
-    padding_positions = torch.arange(
-        max_clean_len,
-        device=clean_lens.device,
-    ).view(1, 1, max_clean_len, 1) >= clean_lens.view(-1, 1, 1, 1)
-    for layer_idx, layer in enumerate(cache.layers):
-        keys, values = layer.keys, layer.values
-        detached.update(
-            keys.detach().masked_fill(padding_positions, 0.0),
-            values.detach().masked_fill(padding_positions, 0.0),
-            layer_idx,
-        )
-    return detached
-
-
 @torch.no_grad()
 def teacher_logits_at_positions(
     verifier,

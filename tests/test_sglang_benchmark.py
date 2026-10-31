@@ -47,6 +47,30 @@ class SglangBenchmarkTests(unittest.TestCase):
         self.assertEqual(result["tokens_per_second"], 20)
         self.assertEqual(result["elapsed_seconds"], 2)
 
+    def test_full_dataset_keeps_every_prompt_and_uses_separate_warmup(self):
+        tokenizer = Mock()
+        tokenizer.apply_chat_template.side_effect = lambda messages, **kwargs: [messages[0]["content"]]
+        transformers = SimpleNamespace(AutoTokenizer=Mock())
+        transformers.AutoTokenizer.from_pretrained.return_value = tokenizer
+        generate = Mock(return_value={"text": "answer", "meta_info": {"completion_tokens": 3}})
+        with tempfile.TemporaryDirectory() as directory:
+            dataset = Path(directory) / "code.jsonl"
+            dataset.write_text('{"prompt": "Write a Python function."}\n{"text": "Explain a loop."}\n')
+            output = Path(directory) / "full.json"
+            arguments = ["benchmark.py", "--dataset", str(dataset), "--tokenizer", "mock",
+                         "--samples", "0", "--repetitions", "1", "--output", str(output)]
+            with patch.dict(sys.modules, {"transformers": transformers}), \
+                    patch.object(sys, "argv", arguments), \
+                    patch.object(BENCHMARK, "call", generate), patch("builtins.print"):
+                BENCHMARK.main()
+            report = json.loads(output.read_text())
+            self.assertEqual(report["indices"], [0, 1])
+            self.assertIsNone(report["warmup_index"])
+            self.assertEqual([row["input_ids"] for row in report["rows"]],
+                             [["Write a Python function."], ["Explain a loop."]])
+            self.assertNotIn(report["warmup_input_ids"], [row["input_ids"] for row in report["rows"]])
+            self.assertEqual(len(output.with_suffix(".rows.jsonl").read_text().splitlines()), 2)
+
     def test_cli_sends_concurrent_requests_and_keeps_prompt_order(self):
         lock = threading.Lock()
         active = 0

@@ -93,7 +93,7 @@ def build_d3d_fsdp_plugin_from_args(args: argparse.Namespace):
     if int(os.environ.get("WORLD_SIZE", "1")) <= 1:
         return None
     if str(getattr(args, "dtype", "bf16")) != "bf16":
-        raise ValueError("D3D FSDP currently expects --dtype bf16, matching the Bard FSDP path")
+        raise ValueError("D3D FSDP requires --dtype bf16")
     from accelerate.utils import FullyShardedDataParallelPlugin
     from torch.distributed.fsdp import MixedPrecisionPolicy
 
