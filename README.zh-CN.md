@@ -225,6 +225,27 @@ export TARGET_MODEL=Qwen/Qwen3-8B
 在两个终端中将 `MAX_RUNNING_REQUESTS` 统一设为 `1`、`4`、`8` 或 `16`；
 修改后需重启后端。
 
+**SGLang Hybrid 在七个测试集全集上的吞吐。**
+
+D3D-1.7B → Qwen3-8B，单并发，`anchor_num=1`，block size 16，
+`max_new_tokens=512`，贪心解码，关闭 thinking，EOS 正常生效。
+
+| 数据集 | TPS（speedup） |
+|---|---:|
+| GSM8K | 658.10 (4.876×) |
+| MATH-500 | 572.66 (4.243×) |
+| HumanEval | 479.15 (3.550×) |
+| MBPP | 428.39 (3.174×) |
+| MT-Bench | 258.54 (1.916×) |
+| AIME25 | 394.56 (2.924×) |
+| LiveCodeBench-v6 | 267.42 (1.982×) |
+| **合并统计** | **501.60 (3.717×)** |
+
+所有 speedup 统一相对于 GSM8K 实测的 SGLang Qwen3-8B 固定参考吞吐
+**134.96 TPS**。Hybrid 使用两张 H800，AR 使用一张；TPS 包含 prefill 和生成，
+不计模型启动、分词与预热。除 LiveCodeBench-v6 的一条回答外，贪心文本均与 AR
+一致；表中是吞吐结果，不代表答案质量评分。
+
 ## 🏋️ 训练与层剪枝
 
 训练发布代码已整合到 `train/` 和 `pruning/`，包括基于 target 生成回答的离线训练、

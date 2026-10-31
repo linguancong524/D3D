@@ -234,6 +234,28 @@ The dataset is downloaded automatically and cached by Hugging Face Datasets.
 Set `MAX_RUNNING_REQUESTS` to `1`, `4`, `8`, or `16` in both terminals;
 restart the backend after changing it.
 
+**SGLang Hybrid throughput on the complete seven-benchmark suite.**
+
+D3D-1.7B → Qwen3-8B, concurrency 1, `anchor_num=1`, block size 16,
+`max_new_tokens=512`, greedy decoding, thinking disabled, and natural EOS.
+
+| Dataset | TPS (speedup) |
+|---|---:|
+| GSM8K | 658.10 (4.876×) |
+| MATH-500 | 572.66 (4.243×) |
+| HumanEval | 479.15 (3.550×) |
+| MBPP | 428.39 (3.174×) |
+| MT-Bench | 258.54 (1.916×) |
+| AIME25 | 394.56 (2.924×) |
+| LiveCodeBench-v6 | 267.42 (1.982×) |
+| **Aggregate** | **501.60 (3.717×)** |
+
+Speedups use the same fixed SGLang Qwen3-8B reference of **134.96 TPS**,
+measured on GSM8K. Hybrid uses two H800 GPUs; AR uses one. TPS includes
+prefill and generation; startup, tokenization, and warmup are excluded.
+Greedy text matched AR except for one LiveCodeBench-v6 response; these
+are throughput results, not answer-quality scores.
+
 ## 🏋️ Training and Layer Pruning
 
 The training release is integrated in `train/` and `pruning/`, including
