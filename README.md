@@ -243,15 +243,14 @@ D3D-1.7B → Qwen3-8B, concurrency 1, `anchor_num=1`, block size 16,
 |---|---:|
 | GSM8K | 658.10 (4.876×) |
 | MATH-500 | 572.66 (4.243×) |
+| AIME25 | 394.56 (2.924×) |
 | HumanEval | 479.15 (3.550×) |
 | MBPP | 428.39 (3.174×) |
+| LCB-v6 | 267.42 (1.982×) |
 | MT-Bench | 258.54 (1.916×) |
-| AIME25 | 394.56 (2.924×) |
-| LiveCodeBench-v6 | 267.42 (1.982×) |
 | **Aggregate** | **501.60 (3.717×)** |
 
-Speedups use the same fixed SGLang Qwen3-8B reference of **134.96 TPS**,
-measured on GSM8K. Hybrid uses two H800 GPUs; AR uses one. TPS includes
+Hybrid uses two H800 GPUs; AR uses one. TPS includes
 prefill and generation; startup, tokenization, and warmup are excluded.
 Greedy text matched AR except for one LiveCodeBench-v6 response; these
 are throughput results, not answer-quality scores.
