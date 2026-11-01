@@ -246,12 +246,10 @@ Hybrid 使用两张 H800，AR 使用一张；TPS 包含 prefill 和生成，
 
 ## 🏋️ 训练与层剪枝
 
-训练发布代码已整合到 `train/` 和 `pruning/`，包括基于 target 生成回答的离线训练、
+训练代码位于 `train/` 和 `pruning/`，包括基于 target 生成回答的离线训练、
 层选择、物理剪枝、恢复训练和恢复 checkpoint 选择。
 
 训练与原生推理使用上面通过 `requirements.txt` 安装的**同一环境**。
-训练版模型仍独立放在 `models/d3d_training/`；依赖统一不改变现有推理实现，
-也不替换 SGLang 单独锁定的运行环境。
 
 ```bash
 export DRAFT_MODEL=checkpoints/Qwen3-1.7B

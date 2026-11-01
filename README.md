@@ -256,14 +256,12 @@ These are throughput results, not answer-quality scores.
 
 ## 🏋️ Training and Layer Pruning
 
-The training release is integrated in `train/` and `pruning/`, including
+Training code lives in `train/` and `pruning/`, including
 offline training on target-generated responses, layer selection, physical
 pruning, recovery training, and recovery-checkpoint selection.
 
 Use the **same environment** installed above with `requirements.txt` for
-training and native inference. The training model port remains in
-`models/d3d_training/`; sharing dependencies does not replace the existing
-inference implementation or the separately locked SGLang runtime.
+training and native inference.
 
 ```bash
 export DRAFT_MODEL=checkpoints/Qwen3-1.7B
