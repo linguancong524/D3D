@@ -6,7 +6,7 @@ export PATH="$(dirname "$PYTHON_BIN"):$PATH"
 MODE="${1:-hybrid}"
 shift || true
 TARGET_MODEL="${TARGET_MODEL:-Qwen/Qwen3-8B}"
-DRAFT_MODEL="${DRAFT_MODEL:-lingc8/D3D-1.7B-to-8B}"
+DRAFT_MODEL="${DRAFT_MODEL:-fudan-generative-ai/D3D-1.7B-8B}"
 ENDPOINT="${DRAFT_ENDPOINT:-tcp://127.0.0.1:17891}"
 export NO_PROXY="${NO_PROXY:-localhost,127.0.0.1}"
 export no_proxy="$NO_PROXY"

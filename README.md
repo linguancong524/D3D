@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"><img src="https://img.shields.io/badge/Models-D3D_Collection-fbbf24?style=flat-square" alt="D3D model collection"></a>
+  <a href="https://huggingface.co/collections/fudan-generative-ai/d3d-6ae71f370a3f3b48ff8e4d15"><img src="https://img.shields.io/badge/Models-D3D_Collection-fbbf24?style=flat-square" alt="D3D model collection"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/Quick_Start-Get_started-22c55e?style=flat-square" alt="Quick start"></a>
   <a href="docs/architecture.md"><img src="https://img.shields.io/badge/Architecture-Docs-0ea5e9?style=flat-square" alt="Architecture guide"></a>
   <a href="#benchmarking"><img src="https://img.shields.io/badge/Benchmarks-Protocol-f97316?style=flat-square" alt="Benchmark protocol"></a>
@@ -46,20 +46,20 @@ See the [architecture guide](docs/architecture.md) for the execution flow.
 
 ## 🤗 Model Zoo
 
-**[Browse the D3D collection →](https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75)**
+**[Browse the D3D collection →](https://huggingface.co/collections/fudan-generative-ai/d3d-6ae71f370a3f3b48ff8e4d15)**
 
-Six Qwen3-derived draft checkpoints are grouped in **lingc8 / D3D**. These are
+Six Qwen3-derived draft checkpoints are grouped in **fudan-generative-ai / D3D**. These are
 **draft models**, not replacements for the target models. `p` denotes pruning;
 `24D` and `31D` denote the retained transformer-layer counts.
 
 | Target verifier | Draft family | Layers | D3D checkpoint |
 |:---|:---|:---:|:---|
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 1.7B | 28 | [D3D-1.7B-to-8B](https://huggingface.co/lingc8/D3D-1.7B-to-8B) |
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 8B | 36 | [D3D-8B-to-8B](https://huggingface.co/lingc8/D3D-8B-to-8B) |
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | Pruned 8B | 31 | [D3D-31D-p8B-to-8B](https://huggingface.co/lingc8/D3D-31D-p8B-to-8B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 1.7B | 28 | [D3D-1.7B-to-32B](https://huggingface.co/lingc8/D3D-1.7B-to-32B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 8B | 36 | [D3D-8B-to-32B](https://huggingface.co/lingc8/D3D-8B-to-32B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | Pruned 1.7B | 24 | [D3D-24D-p1.7B-to-32B](https://huggingface.co/lingc8/D3D-24D-p1.7B-to-32B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 1.7B | 28 | [D3D-1.7B-8B](https://huggingface.co/fudan-generative-ai/D3D-1.7B-8B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 8B | 36 | [D3D-8B-8B](https://huggingface.co/fudan-generative-ai/D3D-8B-8B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | Pruned 8B | 31 | [D3D-31D-p8B-8B](https://huggingface.co/fudan-generative-ai/D3D-31D-p8B-8B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 1.7B | 28 | [D3D-1.7B-32B](https://huggingface.co/fudan-generative-ai/D3D-1.7B-32B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 8B | 36 | [D3D-8B-32B](https://huggingface.co/fudan-generative-ai/D3D-8B-32B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | Pruned 1.7B | 24 | [D3D-24D-p1.7B-32B](https://huggingface.co/fudan-generative-ai/D3D-24D-p1.7B-32B) |
 
 > Checkpoints retain their original FP32 tensors; inference uses BF16.
 > Each Hub repository includes tokenizer assets, inference compatibility code,
@@ -103,7 +103,7 @@ export CUDA_VISIBLE_DEVICES=0,1
 
 # optional: override the defaults for every script
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 ```
 
 The target runs on `cuda:0`, and the draft runs on `cuda:1`. Model IDs also
@@ -124,7 +124,7 @@ bash scripts/quickstart_single.sh
 # e.g. another pair with a longer generation cap
 bash scripts/quickstart_single.sh \
     --verifier Qwen/Qwen3-32B \
-    --drafter lingc8/D3D-24D-p1.7B-to-32B \
+    --drafter fudan-generative-ai/D3D-24D-p1.7B-32B \
     --max-new-tokens 512
 ```
 
@@ -143,11 +143,11 @@ CONCURRENCY=8 bash scripts/quickstart_concurrent.sh --pages 256
 ```bash
 bash scripts/quickstart_single.sh \
     --verifier Qwen/Qwen3-32B \
-    --drafter lingc8/D3D-24D-p1.7B-to-32B
+    --drafter fudan-generative-ai/D3D-24D-p1.7B-32B
 
 bash scripts/quickstart_concurrent.sh \
     --target Qwen/Qwen3-32B \
-    --draft lingc8/D3D-24D-p1.7B-to-32B \
+    --draft fudan-generative-ai/D3D-24D-p1.7B-32B \
     --concurrency 4 --pages 128
 ```
 
@@ -162,7 +162,7 @@ wins. Only a few environment variables remain:
 | Variable | Purpose | Default |
 |:---|:---|:---|
 | `TARGET_MODEL` | Target verifier used by every script | `Qwen/Qwen3-8B` |
-| `DRAFT_MODEL` | Draft checkpoint used by every script | `lingc8/D3D-1.7B-to-8B` |
+| `DRAFT_MODEL` | Draft checkpoint used by every script | `fudan-generative-ai/D3D-1.7B-8B` |
 | `DATASETS` | Dataset list for the two benchmark scripts | the seven benchmarks |
 | `CONCURRENCY` | Quick-start request count, or benchmark sweep list | `4` / `1 4 8 16` |
 | `D3D_DATA_CACHE` | Optional existing JSONL dataset cache | `data_cache/` |
@@ -210,7 +210,7 @@ Start the two-GPU backend (GPU 0: Target + local Draft; GPU 1: optional Draft):
 
 ```bash
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 export TARGET_GPU=0 DRAFT_GPU=1
 export MAX_RUNNING_REQUESTS=1
 bash scripts/sglang/launch.sh hybrid

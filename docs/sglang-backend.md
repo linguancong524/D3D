@@ -13,7 +13,7 @@ Install the separate environment and start both workers from the D3D root:
 ```bash
 bash scripts/sglang/install.sh
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 export TARGET_GPU=0 DRAFT_GPU=1 MAX_RUNNING_REQUESTS=1
 bash scripts/sglang/launch.sh hybrid
 ```
@@ -81,7 +81,7 @@ Target-local Draft. D3D instead registers a separate `D3D_REMOTE` plugin:
 
 - Target uses SGLang's host-tree verification and ordinary greedy Target
   sampling. The Target process never constructs a Draft worker or Draft KV pool.
-- Draft runs the fork's native SDAR `OneStep` engine on the other GPU.
+- Draft runs the fork's native diffusion `OneStep` engine on the other GPU.
 - Required proposals use causal committed-prefix replay plus an
   anchor-conditioned bidirectional diffusion block. All required work is remote.
 - After sending a proposal, the Draft service computes packed continuations
@@ -107,7 +107,7 @@ bash scripts/sglang/install.sh
 `runtime.lock` records the exact initial CUDA-12 runtime assembled for this
 reproduction. Installation deliberately uses `--no-deps`: the fork's generic
 metadata includes CUDA-13 dependencies and optional architectures that are not
-the tested Qwen3/SDAR serving path. The environment is not advertised as a fully
+the tested Qwen3/diffusion serving path. The environment is not advertised as a fully
 dependency-satisfied installation of every SGLang feature. In particular,
 `cuda-python` metadata and installed CUDA-12 bindings differ; prefill CUDA Graph
 is disabled. Unused CUDA-13 packages in the captured lock are not a CUDA-13
@@ -127,7 +127,7 @@ without changing its `config.json` or weights:
 
 ```bash
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 export TARGET_GPU=0 DRAFT_GPU=1
 export BLOCK_SIZE=16 ANCHORS=1
 ```

@@ -131,9 +131,9 @@ class ModelLoadingTests(unittest.TestCase):
             source.save_pretrained(directory)
             config_path = Path(directory) / 'config.json'
             serialized = json.loads(config_path.read_text())
-            self.assertEqual(serialized['model_type'], 'd3d')
-            self.assertEqual(serialized['architectures'], ['D3DForCausalLM'])
-            for model_type in ('d3d', 'sdar'):
+            self.assertEqual(serialized['model_type'], 'qwen3')
+            self.assertEqual(serialized['architectures'], ['Qwen3ForCausalLM'])
+            for model_type in ('qwen3', 'd3d', 'sdar'):
                 with self.subTest(model_type=model_type):
                     serialized['model_type'] = model_type
                     config_path.write_text(json.dumps(serialized))

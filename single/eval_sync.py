@@ -64,7 +64,12 @@ def _checkpoint_model_type(model_path: str) -> str | None:
 
         config_path = Path(hf_hub_download(repo_id=model_path, filename='config.json'))
     try:
-        model_type = json.loads(config_path.read_text()).get("model_type")
+        config = json.loads(config_path.read_text())
+        if config.get("d3d_draft") or config.get("auto_map", {}).get(
+            "AutoModelForCausalLM", ""
+        ).endswith("modeling_d3d.D3DForCausalLM"):
+            return "d3d"
+        model_type = config.get("model_type")
         return "d3d" if model_type == "sdar" else model_type
     except json.JSONDecodeError:
         return None

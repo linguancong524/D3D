@@ -26,7 +26,7 @@ def commands(environment, extra_args):
         "--num-targets", "1", "--gpus", environment.get("TARGET_GPU", "0"),
         environment.get("DRAFT_GPU", "1"),
         "--target-model", environment.get("TARGET_MODEL", "Qwen/Qwen3-8B"),
-        "--draft-model", environment.get("DRAFT_MODEL", "lingc8/D3D-1.7B-to-8B"),
+        "--draft-model", environment.get("DRAFT_MODEL", "fudan-generative-ai/D3D-1.7B-8B"),
         "--dllm-algorithm-config", f"scripts/decoupled/sdar_block{block_size}.yaml",
         "--block-size", str(block_size), "--candidate-topk", str(anchors + 1),
         "--num-anchors", str(anchors), "--max-branches", str(block_size * anchors),
@@ -67,9 +67,20 @@ def main():
     parser.add_argument("--dry-run", action="store_true")
     args, extra_args = parser.parse_known_args()
     environment = os.environ.copy()
+    if args.dry_run:
+        run(environment, extra_args, dry_run=True)
+        return
+    from d3d_sglang.checkpoint import draft_checkpoint
+
+    with draft_checkpoint(environment.get("DRAFT_MODEL", "fudan-generative-ai/D3D-1.7B-8B")) as draft:
+        environment["DRAFT_MODEL"] = draft
+        run(environment, extra_args)
+
+
+def run(environment, extra_args, *, dry_run=False):
     specs = commands(environment, extra_args)
     print(json.dumps(specs, indent=2), flush=True)
-    if args.dry_run:
+    if dry_run:
         return
     import importlib.util
 

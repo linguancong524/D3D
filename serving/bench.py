@@ -24,7 +24,7 @@ from common.runtime import check_hardware, check_paged_capacity, resolve_model_p
 from common.text import apply_chat_template
 
 TARGET='Qwen/Qwen3-8B'
-DRAFT='lingc8/D3D-1.7B-to-8B'
+DRAFT='fudan-generative-ai/D3D-1.7B-8B'
 EOS_IDS=(151643,151645)
 TIMING_BOUNDARY='end_to_end_tps_including_prefill'
 

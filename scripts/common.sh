@@ -19,7 +19,7 @@ check_hardware() {
 
 check_models() {
   : "${TARGET_MODEL:=Qwen/Qwen3-8B}"
-  : "${DRAFT_MODEL:=lingc8/D3D-1.7B-to-8B}"
+  : "${DRAFT_MODEL:=fudan-generative-ai/D3D-1.7B-8B}"
   export TARGET_MODEL DRAFT_MODEL
 }
 

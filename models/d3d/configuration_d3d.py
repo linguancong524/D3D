@@ -123,7 +123,7 @@ class D3DConfig(PretrainedConfig):
     >>> configuration = model.config
     ```"""
 
-    model_type = "d3d"
+    model_type = "qwen3"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     # Default tensor parallel plan for base model `D3D`
@@ -199,6 +199,7 @@ class D3DConfig(PretrainedConfig):
             self.rope_scaling["rope_type"] = self.rope_scaling["type"]
         rope_config_validation(self)
 
+        self.d3d_draft = True
         super().__init__(
             tie_word_embeddings=tie_word_embeddings,
             pad_token_id=pad_token_id,
@@ -206,6 +207,12 @@ class D3DConfig(PretrainedConfig):
             eos_token_id=eos_token_id,
             **kwargs,
         )
+
+    def to_dict(self):
+        config = super().to_dict()
+        config["architectures"] = ["Qwen3ForCausalLM"]
+        config["d3d_draft"] = True
+        return config
 
 
 __all__ = ["D3DConfig"]

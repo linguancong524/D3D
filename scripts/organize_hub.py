@@ -6,12 +6,12 @@ from pathlib import Path
 
 
 CHECKPOINTS = (
-    ('D3D-1.7B-to-8B', 'Qwen3-8B · 1.7B-family draft · 28 layers'),
-    ('D3D-1.7B-to-32B', 'Qwen3-32B · 1.7B-family draft · 28 layers'),
-    ('D3D-8B-to-8B', 'Qwen3-8B · 8B-family draft · 36 layers'),
-    ('D3D-8B-to-32B', 'Qwen3-32B · 8B-family draft · 36 layers'),
-    ('D3D-24D-p1.7B-to-32B', 'Qwen3-32B · pruned 1.7B-family draft · 24 layers'),
-    ('D3D-31D-p8B-to-8B', 'Qwen3-8B · pruned 8B-family draft · 31 layers'),
+    ('D3D-1.7B-8B', 'Qwen3-8B · 1.7B-family draft · 28 layers'),
+    ('D3D-1.7B-32B', 'Qwen3-32B · 1.7B-family draft · 28 layers'),
+    ('D3D-8B-8B', 'Qwen3-8B · 8B-family draft · 36 layers'),
+    ('D3D-8B-32B', 'Qwen3-32B · 8B-family draft · 36 layers'),
+    ('D3D-24D-p1.7B-32B', 'Qwen3-32B · pruned 1.7B-family draft · 24 layers'),
+    ('D3D-31D-p8B-8B', 'Qwen3-8B · pruned 8B-family draft · 31 layers'),
 )
 DESCRIPTION = (
     'Decoupled Diffusion Drafting for Asynchronous Speculative Decoding. '
@@ -19,7 +19,7 @@ DESCRIPTION = (
 )
 
 
-def organize_collection(api, namespace='lingc8'):
+def organize_collection(api, namespace='fudan-generative-ai'):
     models = [(f'{namespace}/{name}', note) for name, note in CHECKPOINTS]
     for model_id, _ in models:
         if api.model_info(model_id).private:
@@ -53,7 +53,7 @@ def organize_collection(api, namespace='lingc8'):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--namespace', default='lingc8')
+    parser.add_argument('--namespace', default='fudan-generative-ai')
     parser.add_argument('--output', type=Path, help='Write verified collection metadata as JSON.')
     parser.add_argument('--dry-run', action='store_true', help='List models without Hub changes.')
     args = parser.parse_args()

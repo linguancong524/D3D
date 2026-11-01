@@ -24,7 +24,7 @@ Environment unification does not merge or change model arithmetic.
 
 Hardware: two NVIDIA H800 80 GB GPUs. Python: 3.12. Target:
 `Qwen/Qwen3-8B`, revision `b968826d9c46dd6066d109eabc6255188de91218`.
-Draft: `lingc8/D3D-1.7B-to-8B`, revision
+Draft: `fudan-generative-ai/D3D-1.7B-8B`, revision
 `23d559e19b110774c5930b077428b955ff020d8b`.
 
 - Single-request asynchronous packed decoding: first three MATH-500 samples,
@@ -62,7 +62,7 @@ For a two-GPU reference check with the released checkpoints:
 
 ```bash
 CUDA_VISIBLE_DEVICES=0,1 python -m serving.bench \
-    --target Qwen/Qwen3-8B --draft lingc8/D3D-1.7B-to-8B \
+    --target Qwen/Qwen3-8B --draft fudan-generative-ai/D3D-1.7B-8B \
     --datasets math500 --max-samples 4 --max-new-tokens 64 \
     --concurrency 1 4 --anchor-num 3 --pages 128 --validate \
     --output outputs/unified_environment/concurrent.json

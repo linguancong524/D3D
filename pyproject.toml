@@ -17,7 +17,7 @@ d3d_strict = "d3d_sglang.plugin:register"
 [project.urls]
 Homepage = "https://github.com/linguancong524/D3D"
 Repository = "https://github.com/linguancong524/D3D"
-Models = "https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"
+Models = "https://huggingface.co/collections/fudan-generative-ai/d3d-6ae71f370a3f3b48ff8e4d15"
 
 [tool.setuptools.packages.find]
 include = ["single*", "serving*", "models*", "common*", "d3d_sglang*", "train*", "pruning*"]

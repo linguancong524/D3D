@@ -26,9 +26,7 @@ and separate optional SGLang runtime.
 
 ## SDAR
 
-The released draft checkpoints use the SDAR checkpoint layout
-(`model_type: sdar`, `SDARForCausalLM`), and the local drafter was imported
-through that code path before being exposed under D3D module names. Upstream:
+The local drafter includes adaptations from upstream:
 [SDAR (Synergy of Diffusion and AutoRegression)](https://github.com/JetAstra/SDAR),
 MIT license; consult the upstream repository and model cards for
 checkpoint-specific terms.

@@ -1,9 +1,12 @@
 {
-  "model_type": "d3d",
-  "architectures": ["D3DForCausalLM"],
+  "model_type": "qwen3",
+  "architectures": [
+    "Qwen3ForCausalLM"
+  ],
   "auto_map": {
     "AutoConfig": "configuration_d3d.D3DConfig",
     "AutoModel": "modeling_d3d.D3DModel",
     "AutoModelForCausalLM": "modeling_d3d.D3DForCausalLM"
-  }
+  },
+  "d3d_draft": true
 }

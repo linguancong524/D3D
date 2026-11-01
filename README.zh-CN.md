@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75"><img src="https://img.shields.io/badge/%E6%A8%A1%E5%9E%8B-D3D_Collection-fbbf24?style=flat-square" alt="D3D 模型合集"></a>
+  <a href="https://huggingface.co/collections/fudan-generative-ai/d3d-6ae71f370a3f3b48ff8e4d15"><img src="https://img.shields.io/badge/%E6%A8%A1%E5%9E%8B-D3D_Collection-fbbf24?style=flat-square" alt="D3D 模型合集"></a>
   <a href="#quick-start"><img src="https://img.shields.io/badge/%E5%BF%AB%E9%80%9F%E5%BC%80%E5%A7%8B-%E5%BC%80%E5%A7%8B%E4%BD%BF%E7%94%A8-22c55e?style=flat-square" alt="快速开始"></a>
   <a href="docs/architecture.md"><img src="https://img.shields.io/badge/%E6%9E%B6%E6%9E%84-%E6%96%87%E6%A1%A3-0ea5e9?style=flat-square" alt="架构文档"></a>
   <a href="#benchmarking"><img src="https://img.shields.io/badge/%E5%9F%BA%E5%87%86-%E5%8D%8F%E8%AE%AE-f97316?style=flat-square" alt="基准协议"></a>
@@ -44,20 +44,20 @@
 
 ## 🤗 模型仓库
 
-**[浏览 D3D 合集 →](https://huggingface.co/collections/lingc8/d3d-6acc999de5b699dcf37b3c75)**
+**[浏览 D3D 合集 →](https://huggingface.co/collections/fudan-generative-ai/d3d-6ae71f370a3f3b48ff8e4d15)**
 
-六个 Qwen3 派生的草稿 checkpoint 收录在 **lingc8 / D3D** 合集中。它们是
+六个 Qwen3 派生的草稿 checkpoint 收录在 **fudan-generative-ai / D3D** 合集中。它们是
 **草稿模型**，不是目标模型的替代品。名称中的 `p` 表示剪枝，`24D` 与 `31D`
 表示保留的 transformer 层数。
 
 | 目标验证模型 | 草稿系列 | 层数 | D3D checkpoint |
 |:---|:---|:---:|:---|
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 1.7B | 28 | [D3D-1.7B-to-8B](https://huggingface.co/lingc8/D3D-1.7B-to-8B) |
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 8B | 36 | [D3D-8B-to-8B](https://huggingface.co/lingc8/D3D-8B-to-8B) |
-| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 剪枝 8B | 31 | [D3D-31D-p8B-to-8B](https://huggingface.co/lingc8/D3D-31D-p8B-to-8B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 1.7B | 28 | [D3D-1.7B-to-32B](https://huggingface.co/lingc8/D3D-1.7B-to-32B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 8B | 36 | [D3D-8B-to-32B](https://huggingface.co/lingc8/D3D-8B-to-32B) |
-| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 剪枝 1.7B | 24 | [D3D-24D-p1.7B-to-32B](https://huggingface.co/lingc8/D3D-24D-p1.7B-to-32B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 1.7B | 28 | [D3D-1.7B-8B](https://huggingface.co/fudan-generative-ai/D3D-1.7B-8B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 8B | 36 | [D3D-8B-8B](https://huggingface.co/fudan-generative-ai/D3D-8B-8B) |
+| [Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B) | 剪枝 8B | 31 | [D3D-31D-p8B-8B](https://huggingface.co/fudan-generative-ai/D3D-31D-p8B-8B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 1.7B | 28 | [D3D-1.7B-32B](https://huggingface.co/fudan-generative-ai/D3D-1.7B-32B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 8B | 36 | [D3D-8B-32B](https://huggingface.co/fudan-generative-ai/D3D-8B-32B) |
+| [Qwen3-32B](https://huggingface.co/Qwen/Qwen3-32B) | 剪枝 1.7B | 24 | [D3D-24D-p1.7B-32B](https://huggingface.co/fudan-generative-ai/D3D-24D-p1.7B-32B) |
 
 > checkpoint 保留原始 FP32 张量，推理时使用 BF16。每个 Hub 仓库包含
 > tokenizer 资源、推理兼容代码、model card 与发布元数据。名称中的系列规模
@@ -98,7 +98,7 @@ export CUDA_VISIBLE_DEVICES=0,1
 
 # 可选：覆盖所有脚本的默认模型
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 ```
 
 目标模型运行在 `cuda:0`，草稿模型运行在 `cuda:1`。模型 ID 也接受本地
@@ -118,7 +118,7 @@ bash scripts/quickstart_single.sh
 # 例如换一对模型并放宽生成长度
 bash scripts/quickstart_single.sh \
     --verifier Qwen/Qwen3-32B \
-    --drafter lingc8/D3D-24D-p1.7B-to-32B \
+    --drafter fudan-generative-ai/D3D-24D-p1.7B-32B \
     --max-new-tokens 512
 ```
 
@@ -137,11 +137,11 @@ CONCURRENCY=8 bash scripts/quickstart_concurrent.sh --pages 256
 ```bash
 bash scripts/quickstart_single.sh \
     --verifier Qwen/Qwen3-32B \
-    --drafter lingc8/D3D-24D-p1.7B-to-32B
+    --drafter fudan-generative-ai/D3D-24D-p1.7B-32B
 
 bash scripts/quickstart_concurrent.sh \
     --target Qwen/Qwen3-32B \
-    --draft lingc8/D3D-24D-p1.7B-to-32B \
+    --draft fudan-generative-ai/D3D-24D-p1.7B-32B \
     --concurrency 4 --pages 128
 ```
 
@@ -155,7 +155,7 @@ bash scripts/quickstart_concurrent.sh \
 | 变量 | 作用 | 默认值 |
 |:---|:---|:---|
 | `TARGET_MODEL` | 所有脚本使用的目标验证模型 | `Qwen/Qwen3-8B` |
-| `DRAFT_MODEL` | 所有脚本使用的草稿 checkpoint | `lingc8/D3D-1.7B-to-8B` |
+| `DRAFT_MODEL` | 所有脚本使用的草稿 checkpoint | `fudan-generative-ai/D3D-1.7B-8B` |
 | `DATASETS` | 两个 benchmark 脚本的数据集列表 | 七个标准数据集 |
 | `CONCURRENCY` | quick start 的请求数，或并发 benchmark 的扫描列表 | `4` / `1 4 8 16` |
 | `D3D_DATA_CACHE` | 可选的本地 JSONL 数据集缓存 | `data_cache/` |
@@ -201,7 +201,7 @@ bash scripts/sglang/install.sh
 
 ```bash
 export TARGET_MODEL=Qwen/Qwen3-8B
-export DRAFT_MODEL=lingc8/D3D-1.7B-to-8B
+export DRAFT_MODEL=fudan-generative-ai/D3D-1.7B-8B
 export TARGET_GPU=0 DRAFT_GPU=1
 export MAX_RUNNING_REQUESTS=1
 bash scripts/sglang/launch.sh hybrid

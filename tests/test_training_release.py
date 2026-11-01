@@ -164,7 +164,7 @@ class TrainingRuntimeTests(unittest.TestCase):
                 directory, str(ROOT / 'models/d3d_training'),
             ) as staged:
                 staged_config = json.loads((Path(staged) / 'config.json').read_text())
-                self.assertEqual(staged_config['model_type'], 'd3d')
+                self.assertEqual(staged_config['model_type'], 'qwen3')
                 self.assertEqual(staged_config['hidden_size'], 32)
                 self.assertEqual(staged_config['num_hidden_layers'], 2)
                 self.assertIn('AutoModelForCausalLM', staged_config['auto_map'])

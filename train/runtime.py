@@ -344,7 +344,7 @@ def stage_checkpoint_with_code_model(path: str, code_model: str):
                 target_config_path.unlink()
             config = json.loads(checkpoint_config_path.read_text())
             code_config = json.loads(code_config_path.read_text())
-            for key in ("auto_map", "model_type", "architectures"):
+            for key in ("auto_map", "model_type", "architectures", "d3d_draft"):
                 if key in code_config:
                     config[key] = code_config[key]
             config["fuse_cross_entropy"] = False
@@ -370,7 +370,7 @@ def restore_checkpoint_remote_code(checkpoint_path: Path, code_model_path: Path)
         return
     config = json.loads(checkpoint_config_path.read_text(encoding="utf-8"))
     code_config = json.loads(code_config_path.read_text(encoding="utf-8"))
-    for key in ("auto_map", "model_type", "architectures"):
+    for key in ("auto_map", "model_type", "architectures", "d3d_draft"):
         if key in code_config:
             config[key] = code_config[key]
     checkpoint_config_path.write_text(

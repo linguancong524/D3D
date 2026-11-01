@@ -7,7 +7,7 @@ from scripts.organize_hub import CHECKPOINTS, organize_collection
 class FakeHub:
     def __init__(self, existing=False, private_model=False):
         self.collection = SimpleNamespace(
-            title='D3D', slug='lingc8/d3d-test', items=[], private=False,
+            title='D3D', slug='fudan-generative-ai/d3d-test', items=[], private=False,
         )
         self.collections = [self.collection] if existing else []
         self.private_model = private_model
@@ -40,7 +40,7 @@ class CollectionTests(unittest.TestCase):
         api = FakeHub()
         result = organize_collection(api)
         self.assertEqual(api.created, 1)
-        self.assertEqual(result['models'], [f'lingc8/{name}' for name, _ in CHECKPOINTS])
+        self.assertEqual(result['models'], [f'fudan-generative-ai/{name}' for name, _ in CHECKPOINTS])
         self.assertEqual(len(api.collection.items), 6)
 
     def test_reuses_collection_without_duplicate_models(self):
