@@ -252,8 +252,7 @@ D3D-1.7B → Qwen3-8B, concurrency 1, `anchor_num=1`, block size 16,
 
 Hybrid uses two H800 GPUs; AR uses one. TPS includes
 prefill and generation; startup, tokenization, and warmup are excluded.
-Greedy text matched AR except for one LiveCodeBench-v6 response; these
-are throughput results, not answer-quality scores.
+These are throughput results, not answer-quality scores.
 
 ## 🏋️ Training and Layer Pruning
 
