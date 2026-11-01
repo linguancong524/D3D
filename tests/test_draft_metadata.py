@@ -30,7 +30,7 @@ class DraftMetadataTests(unittest.TestCase):
             with draft_checkpoint(directory) as staged:
                 staged = Path(staged)
                 adapted = json.loads((staged / 'config.json').read_text())
-                self.assertEqual(adapted['architectures'], ['SDARForCausalLM'])
+                self.assertEqual(adapted['architectures'], ['D3DForCausalLM'])
                 self.assertNotIn('auto_map', adapted)
                 self.assertEqual(adapted['hidden_size'], 32)
                 self.assertEqual((staged / 'model.safetensors').resolve(), path / 'model.safetensors')

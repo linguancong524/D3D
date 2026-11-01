@@ -583,4 +583,8 @@ class SDARForCausalLM(nn.Module):
                     logger.warning(f"Parameter {name} not found in params_dict")
 
 
-EntryClass = SDARForCausalLM
+class D3DForCausalLM(SDARForCausalLM):
+    pass
+
+
+EntryClass = [SDARForCausalLM, D3DForCausalLM]

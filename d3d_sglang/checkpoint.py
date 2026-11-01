@@ -19,8 +19,7 @@ def draft_checkpoint(model_path):
         return
     if config.get("model_type") != "qwen3":
         raise ValueError("D3D draft must use the Qwen3 architecture")
-    # This identifier belongs to the unchanged third-party engine registry.
-    config["architectures"] = ["SDARForCausalLM"]
+    config["architectures"] = ["D3DForCausalLM"]
     config.pop("auto_map", None)
     with tempfile.TemporaryDirectory(prefix="d3d-engine-") as directory:
         staged = Path(directory)
