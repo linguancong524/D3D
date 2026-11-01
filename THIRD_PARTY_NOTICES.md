@@ -24,13 +24,6 @@ is kept in `models/d3d_training/` to preserve the existing inference runtime.
 See [the training guide](docs/training.md) for the shared native environment
 and separate optional SGLang runtime.
 
-## SDAR
-
-The local drafter includes adaptations from upstream:
-[SDAR (Synergy of Diffusion and AutoRegression)](https://github.com/JetAstra/SDAR),
-MIT license; consult the upstream repository and model cards for
-checkpoint-specific terms.
-
 ## SGLang backend
 
 `third_party/sglang/` is a source snapshot of SGLang and the decoupled
